@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../lib/firebase/config";
-import { getUserRole } from "../../lib/firebase/users";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../../lib/firebase/config";
 
 const ROLE_ROUTES = {
   admin: "/admin",
@@ -26,15 +26,34 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const uid = userCredential.user.uid;
-      const userData = await getUserRole(uid);
-      const role = userData?.role;
+      await signInWithEmailAndPassword(auth, email, password);
+
+      const currentUser = auth.currentUser;
+      const uid = currentUser?.uid;
+
+      if (!uid) {
+        throw new Error("User uid not found after login.");
+      }
+
+      const userDocRef = doc(db, "users", uid);
+      const userSnapshot = await getDoc(userDocRef);
+      const documentExists = userSnapshot.exists();
+      const role = documentExists ? userSnapshot.data()?.role : undefined;
       const destination = ROLE_ROUTES[role];
+
+      console.log("uid:", uid);
+      console.log("document exists:", documentExists);
+      console.log("role:", role);
+
+      if (!documentExists) {
+        console.error("User document does not exist for uid:", uid);
+        throw new Error("User document not found.");
+      }
+
+      if (!role) {
+        console.error("Role is missing for uid:", uid);
+        throw new Error("User role not found.");
+      }
 
       if (!destination) {
         throw new Error("No valid role found for this user.");
@@ -44,7 +63,11 @@ export default function LoginPage() {
     } catch (loginError) {
       setError("Invalid email or password.");
 
-      if (loginError?.message === "No valid role found for this user.") {
+      if (
+        loginError?.message === "User document not found." ||
+        loginError?.message === "User role not found." ||
+        loginError?.message === "No valid role found for this user."
+      ) {
         setError("User role not found.");
       }
     } finally {
