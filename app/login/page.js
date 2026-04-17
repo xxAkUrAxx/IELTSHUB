@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [theme, setTheme] = useState("light");
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -94,52 +95,69 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center p-6">
-      <form onSubmit={handleSubmit} className="space-y-4 rounded border p-6">
-        <h1 className="text-2xl font-semibold">Login</h1>
-
-        <div className="space-y-2">
-          <label htmlFor="email" className="block text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded border px-3 py-2"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="password" className="block text-sm font-medium">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded border px-3 py-2"
-            required
-          />
-        </div>
-
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-        <button
-          type="submit"
-          className="rounded border px-4 py-2"
-          disabled={isLoading}
+    <main data-theme={theme} className="hero min-h-screen bg-base-200">
+      <div className="hero-content w-full max-w-md">
+        <form
+          onSubmit={handleSubmit}
+          className="card w-full bg-base-100 shadow-xl"
         >
-          {isLoading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+          <div className="card-body gap-4 rounded-box">
+            <div className="card-actions justify-end">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() =>
+                  setTheme((currentTheme) =>
+                    currentTheme === "light" ? "dark" : "light"
+                  )
+                }
+              >
+                {theme === "light" ? "Dark" : "Light"} Mode
+              </button>
+            </div>
+
+            <h1 className="card-title text-3xl">Login</h1>
+
+            <label htmlFor="email" className="label">
+              <span className="label-text">Email</span>
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="input input-bordered w-full"
+              required
+            />
+
+            <label htmlFor="password" className="label">
+              <span className="label-text">Password</span>
+            </label>
+          <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="input input-bordered w-full"
+              required
+            />
+
+            {error ? <p className="text-error">{error}</p> : null}
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={isLoading}
+            >
+              {isLoading ? "Logging in..." : "Login"}
+            </button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }
