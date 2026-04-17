@@ -26,7 +26,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      console.log("Login success");
+      console.log("UID:", user.uid);
 
       const currentUser = auth.currentUser;
       const uid = currentUser?.uid;
@@ -35,15 +43,16 @@ export default function LoginPage() {
         throw new Error("User uid not found after login.");
       }
 
+      console.log("Fetching user doc...");
+
       const userDocRef = doc(db, "users", uid);
-      const userSnapshot = await getDoc(userDocRef);
-      const documentExists = userSnapshot.exists();
-      const role = documentExists ? userSnapshot.data()?.role : undefined;
+      const docSnap = await getDoc(userDocRef);
+      const documentExists = docSnap.exists();
+      const role = documentExists ? docSnap.data()?.role : undefined;
       const destination = ROLE_ROUTES[role];
 
-      console.log("uid:", uid);
-      console.log("document exists:", documentExists);
-      console.log("role:", role);
+      console.log("Doc exists:", docSnap.exists());
+      console.log("Data:", docSnap.data());
 
       if (!documentExists) {
         console.error("User document does not exist for uid:", uid);
@@ -61,6 +70,7 @@ export default function LoginPage() {
 
       router.push(destination);
     } catch (loginError) {
+      console.log("ERROR:", loginError);
       setError("Invalid email or password.");
 
       if (
