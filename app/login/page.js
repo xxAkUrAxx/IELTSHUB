@@ -6,13 +6,6 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase/config";
 
-const ROLE_ROUTES = {
-  admin: "/admin",
-  student: "/student",
-  teacher: "/teacher",
-  creator: "/creator",
-};
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -49,7 +42,6 @@ export default function LoginPage() {
       const docSnap = await getDoc(userDocRef);
       const documentExists = docSnap.exists();
       const role = documentExists ? docSnap.data()?.role : undefined;
-      const destination = ROLE_ROUTES[role];
 
       console.log("Doc exists:", docSnap.exists());
       console.log("Data:", docSnap.data());
@@ -64,11 +56,27 @@ export default function LoginPage() {
         throw new Error("User role not found.");
       }
 
-      if (!destination) {
-        throw new Error("No valid role found for this user.");
+      if (role === "admin") {
+        router.push("/admin");
+        return;
       }
 
-      router.push(destination);
+      if (role === "student") {
+        router.push("/student");
+        return;
+      }
+
+      if (role === "teacher") {
+        router.push("/teacher");
+        return;
+      }
+
+      if (role === "creator") {
+        router.push("/creator");
+        return;
+      }
+
+      throw new Error("No valid role found for this user.");
     } catch (loginError) {
       console.log("ERROR:", loginError);
       setError("Invalid email or password.");
