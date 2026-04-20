@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../../lib/firebase/config";
+import { auth } from "../../lib/firebase/config";
+import { getUserRole } from "../../lib/firebase/users";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,61 +25,65 @@ export default function LoginPage() {
         password
       );
       const user = userCredential.user;
+      const uid = user?.uid;
 
-      console.log("Login success");
-      console.log("UID:", user.uid);
-
-      const currentUser = auth.currentUser;
-      const uid = currentUser?.uid;
+      console.log("[Login] Firebase authentication succeeded.");
+      console.log("[Login] Authenticated user UID:", uid);
 
       if (!uid) {
         throw new Error("User uid not found after login.");
       }
 
-      console.log("Fetching user doc...");
+      console.log(`[Login] Fetching Firestore user document: users/${uid}`);
+      const userData = await getUserRole(uid);
 
-      const userDocRef = doc(db, "users", uid);
-      const docSnap = await getDoc(userDocRef);
-      const documentExists = docSnap.exists();
-      const role = documentExists ? docSnap.data()?.role : undefined;
+      console.log("[Login] Firestore document data:", userData);
 
-      console.log("Doc exists:", docSnap.exists());
-      console.log("Data:", docSnap.data());
-
-      if (!documentExists) {
-        console.error("User document does not exist for uid:", uid);
+      if (!userData) {
+        console.error(
+          `[Login] Firestore document not found for users/${uid}.`
+        );
         throw new Error("User document not found.");
       }
 
+      const role =
+        typeof userData.role === "string" ? userData.role.trim() : undefined;
+
+      console.log("[Login] Resolved role:", role);
+
       if (!role) {
-        console.error("Role is missing for uid:", uid);
+        console.error(`[Login] Role is missing in users/${uid}.`, userData);
         throw new Error("User role not found.");
       }
 
       if (role === "admin") {
-        router.push("/admin");
+        console.log("[Login] Routing to /admin");
+        router.replace("/admin");
         return;
       }
 
       if (role === "student") {
-        router.push("/student");
+        console.log("[Login] Routing to /student");
+        router.replace("/student");
         return;
       }
 
       if (role === "teacher") {
-        router.push("/teacher");
+        console.log("[Login] Routing to /teacher");
+        router.replace("/teacher");
         return;
       }
 
       if (role === "creator") {
-        router.push("/creator");
+        console.log("[Login] Routing to /creator");
+        router.replace("/creator");
         return;
       }
 
+      console.error(`[Login] Unsupported role "${role}" for users/${uid}.`);
       throw new Error("No valid role found for this user.");
     } catch (loginError) {
-      console.log("ERROR:", loginError);
-      setError("Invalid email or password.");
+      console.error("[Login] Login flow failed:", loginError);
 
       if (
         loginError?.message === "User document not found." ||
@@ -87,7 +91,10 @@ export default function LoginPage() {
         loginError?.message === "No valid role found for this user."
       ) {
         setError("User role not found.");
+        return;
       }
+
+      setError("Invalid email or password.");
     } finally {
       setIsLoading(false);
     }
