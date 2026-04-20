@@ -56,23 +56,27 @@ const mockItems = [
   },
 ];
 
-const listeningTests = [
+const mockTests = [
   {
+    type: "listening",
     title: "Listening Test 1",
     difficulty: "Easy",
     icon: SpeakerWaveIcon,
   },
   {
+    type: "reading",
     title: "Reading Test 1",
     difficulty: "Medium",
     icon: BookOpenIcon,
   },
   {
+    type: "writing",
     title: "Writing Test 1",
     difficulty: "Hard",
     icon: PencilSquareIcon,
   },
   {
+    type: "speaking",
     title: "Speaking Test 1",
     difficulty: "Medium",
     icon: MicrophoneIcon,
@@ -169,7 +173,13 @@ function TestCard({ title, difficulty, icon: Icon }) {
 }
 
 function MockExamContent({ activeMockSection }) {
-  if (activeMockSection === "listening") {
+  if (activeMockSection) {
+    const filteredTests = mockTests.filter(
+      (test) => test.type === activeMockSection
+    );
+    const selectedSection =
+      activeMockSection.charAt(0).toUpperCase() + activeMockSection.slice(1);
+
     return (
       <section className="flex min-h-[calc(100vh-4rem)] flex-col">
         <header className="mb-8">
@@ -177,27 +187,20 @@ function MockExamContent({ activeMockSection }) {
         </header>
 
         <div className="flex flex-1 items-center justify-center">
-          <div className="grid w-full max-w-5xl gap-6 md:grid-cols-2">
-            {listeningTests.map((card) => (
-              <TestCard key={card.title} {...card} />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (activeMockSection) {
-    const selectedSection =
-      activeMockSection.charAt(0).toUpperCase() + activeMockSection.slice(1);
-
-    return (
-      <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
-          <h1 className="mb-2 text-3xl font-semibold tracking-tight">
-            {selectedSection}
-          </h1>
-          <p className="text-base-content/65">Coming Soon</p>
+          {filteredTests.length > 0 ? (
+            <div className="grid w-full max-w-5xl gap-6 md:grid-cols-2">
+              {filteredTests.map((card) => (
+                <TestCard key={card.title} {...card} />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+              <h1 className="mb-2 text-3xl font-semibold tracking-tight">
+                {selectedSection}
+              </h1>
+              <p className="text-base-content/65">Coming Soon</p>
+            </div>
+          )}
         </div>
       </section>
     );
