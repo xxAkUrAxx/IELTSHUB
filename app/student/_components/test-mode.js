@@ -1,4 +1,4 @@
-export default function TestMode() {
+export default function TestMode({ testTitle = "Reading Test", onStartTest }) {
   const instructions = [
     {
       label: "Test Duration",
@@ -48,7 +48,7 @@ export default function TestMode() {
         <div className="card-body gap-8 p-8 md:p-10">
           <div className="space-y-3 text-center">
             <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-              Reading Test Instructions
+              {testTitle} Instructions
             </h1>
             <p className="mx-auto max-w-2xl text-base leading-7 text-base-content/70">
               Review the test format and tools below before beginning your reading
@@ -71,7 +71,11 @@ export default function TestMode() {
           </div>
 
           <div className="flex justify-center pt-2">
-            <button type="button" className="btn btn-primary btn-lg min-w-56">
+            <button
+              type="button"
+              className="btn btn-primary btn-lg min-w-56"
+              onClick={onStartTest}
+            >
               Start Test
             </button>
           </div>

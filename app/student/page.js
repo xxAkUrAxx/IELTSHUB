@@ -17,6 +17,7 @@ import {
   SpeakerWaveIcon,
 } from "@heroicons/react/24/outline";
 import { useRequireRole } from "../../lib/firebase/role-guard";
+import TestMode from "./_components/test-mode";
 
 const practiceItems = [
   {
@@ -58,6 +59,7 @@ const mockItems = [
 
 const mockTests = [
   {
+    id: "listening-test-1",
     type: "listening",
     title: "Listening Test 1",
     difficulty: "Easy",
@@ -65,6 +67,7 @@ const mockTests = [
     completed: false,
   },
   {
+    id: "reading-test-1",
     type: "reading",
     title: "Reading Test 1",
     difficulty: "Medium",
@@ -72,6 +75,7 @@ const mockTests = [
     completed: false,
   },
   {
+    id: "writing-test-1",
     type: "writing",
     title: "Writing Test 1",
     difficulty: "Hard",
@@ -79,6 +83,7 @@ const mockTests = [
     completed: false,
   },
   {
+    id: "speaking-test-1",
     type: "speaking",
     title: "Speaking Test 1",
     difficulty: "Medium",
@@ -152,7 +157,14 @@ function SidebarSection({
   );
 }
 
-function TestCard({ title, difficulty, icon: Icon, completed = false, score }) {
+function TestCard({
+  title,
+  difficulty,
+  icon: Icon,
+  completed = false,
+  score,
+  onStart,
+}) {
   function handleReview() {
     window.alert("Review coming soon");
   }
@@ -207,7 +219,7 @@ function TestCard({ title, difficulty, icon: Icon, completed = false, score }) {
           </div>
         ) : (
           <div className="card-actions justify-end">
-            <button type="button" className="btn btn-primary">
+            <button type="button" className="btn btn-primary" onClick={onStart}>
               Start
             </button>
           </div>
@@ -217,7 +229,7 @@ function TestCard({ title, difficulty, icon: Icon, completed = false, score }) {
   );
 }
 
-function MockExamContent({ activeMockSection }) {
+function MockExamContent({ activeMockSection, onStartTest }) {
   if (activeMockSection) {
     const filteredTests = mockTests.filter(
       (test) => test.type === activeMockSection
@@ -235,7 +247,17 @@ function MockExamContent({ activeMockSection }) {
           {filteredTests.length > 0 ? (
             <div className="grid w-full max-w-5xl gap-6 md:grid-cols-2">
               {filteredTests.map((card) => (
-                <TestCard key={card.title} {...card} />
+                <TestCard
+                  key={card.id}
+                  {...card}
+                  onStart={() =>
+                    onStartTest({
+                      id: card.id,
+                      type: card.type,
+                      title: card.title,
+                    })
+                  }
+                />
               ))}
             </div>
           ) : (
@@ -268,9 +290,46 @@ export default function StudentPage() {
   const [isPracticeOpen, setIsPracticeOpen] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(false);
   const [activeMockSection, setActiveMockSection] = useState("");
+  const [currentTest, setCurrentTest] = useState(null);
+  const [isTestStarted, setIsTestStarted] = useState(false);
+
+  function handleSelectTest(test) {
+    setCurrentTest(test);
+    setIsTestStarted(false);
+  }
 
   if (!isAuthorized) {
     return null;
+  }
+
+  if (currentTest && !isTestStarted) {
+    return (
+      <TestMode
+        testTitle={currentTest.title}
+        onStartTest={() => setIsTestStarted(true)}
+      />
+    );
+  }
+
+  if (currentTest && isTestStarted) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-base-200 px-6 py-10">
+        <div className="card w-full max-w-3xl border border-base-300 bg-base-100 shadow-lg">
+          <div className="card-body items-center gap-4 p-10 text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/50">
+              Test Mode
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight">
+              {currentTest.title} Loaded
+            </h1>
+            <p className="max-w-xl text-base leading-7 text-base-content/70">
+              {currentTest.type.charAt(0).toUpperCase() + currentTest.type.slice(1)}{" "}
+              test content will appear here next.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -367,7 +426,10 @@ export default function StudentPage() {
 
       <main className="flex-1 overflow-x-auto">
         <div className="min-h-screen p-6 md:p-8">
-          <MockExamContent activeMockSection={activeMockSection} />
+          <MockExamContent
+            activeMockSection={activeMockSection}
+            onStartTest={handleSelectTest}
+          />
         </div>
       </main>
     </div>
