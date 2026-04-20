@@ -306,6 +306,7 @@ export default function StudentPage() {
     return (
       <TestMode
         testTitle={currentTest.title}
+        testType={currentTest.type}
         onStartTest={() => setIsTestStarted(true)}
       />
     );
