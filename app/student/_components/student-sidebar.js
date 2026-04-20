@@ -4,39 +4,39 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  AcademicCapIcon,
   ArrowLeftEndOnRectangleIcon,
   Bars3Icon,
-  BookOpenIcon,
-  CheckBadgeIcon,
+  ClipboardDocumentCheckIcon,
+  ComputerDesktopIcon,
   HomeIcon,
-  LanguageIcon,
-  SpeakerWaveIcon,
+  MusicalNoteIcon,
+  PencilSquareIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  KeyboardIcon,
 } from "@heroicons/react/24/outline";
 
 const practiceItems = [
   {
     href: "/student/practice",
     label: "Practice",
-    icon: BookOpenIcon,
+    icon: ClipboardDocumentCheckIcon,
     exact: true,
   },
   {
     href: "/student/practice/grammar",
     label: "Grammar Practice",
-    icon: LanguageIcon,
+    icon: AcademicCapIcon,
   },
   {
     href: "/student/practice/listening",
     label: "Listening Practice",
-    icon: SpeakerWaveIcon,
+    icon: MusicalNoteIcon,
   },
   {
     href: "/student/practice/speed",
     label: "Speed Typing",
-    icon: KeyboardIcon,
+    icon: PencilSquareIcon,
   },
 ];
 
@@ -50,7 +50,7 @@ const primaryItems = [
   {
     href: "/student/mock-exams",
     label: "Mock Exams",
-    icon: CheckBadgeIcon,
+    icon: ComputerDesktopIcon,
   },
 ];
 
@@ -137,7 +137,7 @@ export default function StudentSidebar() {
               title={isCollapsed ? "Practice" : undefined}
               onClick={() => setIsPracticeOpen((current) => !current)}
             >
-              <BookOpenIcon className="h-5 w-5 shrink-0" />
+              <ClipboardDocumentCheckIcon className="h-5 w-5 shrink-0" />
               {!isCollapsed && (
                 <>
                   <span className="ml-3 flex-1 truncate font-medium">Practice</span>
