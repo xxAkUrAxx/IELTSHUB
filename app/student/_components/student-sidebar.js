@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   AcademicCapIcon,
   ArrowLeftEndOnRectangleIcon,
@@ -21,39 +21,46 @@ const practiceItems = [
     href: "/student/practice/grammar",
     label: "Grammar Practice",
     icon: AcademicCapIcon,
+    exact: true,
   },
   {
     href: "/student/practice/listening",
     label: "Listening Practice",
     icon: MusicalNoteIcon,
+    exact: true,
   },
   {
     href: "/student/practice/speed",
     label: "Speed Typing",
     icon: PencilSquareIcon,
+    exact: true,
   },
 ];
 
 const mockExamItems = [
   {
-    href: "/student/mock-exams",
+    href: "/student/mock-exams/listening",
     label: "Listening",
     icon: AcademicCapIcon,
+    exact: true,
   },
   {
-    href: "/student/mock-exams",
+    href: "/student/mock-exams/reading",
     label: "Reading",
     icon: MusicalNoteIcon,
+    exact: true,
   },
   {
-    href: "/student/mock-exams",
+    href: "/student/mock-exams/writing",
     label: "Writing",
     icon: PencilSquareIcon,
+    exact: true,
   },
   {
-    href: "/student/mock-exams",
+    href: "/student/mock-exams/speaking",
     label: "Speaking",
     icon: ClipboardDocumentCheckIcon,
+    exact: true,
   },
 ];
 
@@ -121,7 +128,7 @@ function SidebarSection({
         )}
       </button>
 
-      {(isOpen || isActive || !isCollapsed) && (
+      {isOpen && (
         <div className={`flex flex-col gap-1 ${isCollapsed ? "" : "pl-3"}`}>
           {children}
         </div>
@@ -132,26 +139,11 @@ function SidebarSection({
 
 export default function StudentSidebar() {
   const pathname = usePathname();
-  const practiceRouteActive =
-    pathname === "/student/practice" || pathname.startsWith("/student/practice/");
-  const mockExamsRouteActive =
-    pathname === "/student/mock-exams" ||
-    pathname.startsWith("/student/mock-exams/");
+  const isPracticeRouteActive = pathname === "/student/practice";
+  const isMockRouteActive = pathname === "/student/mock-exams";
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isPracticeOpen, setIsPracticeOpen] = useState(practiceRouteActive);
-  const [isMockExamsOpen, setIsMockExamsOpen] = useState(mockExamsRouteActive);
-
-  useEffect(() => {
-    if (practiceRouteActive) {
-      setIsPracticeOpen(true);
-    }
-  }, [practiceRouteActive]);
-
-  useEffect(() => {
-    if (mockExamsRouteActive) {
-      setIsMockExamsOpen(true);
-    }
-  }, [mockExamsRouteActive]);
+  const [isPracticeOpen, setIsPracticeOpen] = useState(false);
+  const [isMockOpen, setIsMockOpen] = useState(false);
 
   return (
     <aside
@@ -193,9 +185,9 @@ export default function StudentSidebar() {
             label="Mock Exams"
             icon={ComputerDesktopIcon}
             isCollapsed={isCollapsed}
-            isOpen={isMockExamsOpen}
-            isActive={mockExamsRouteActive}
-            onToggle={() => setIsMockExamsOpen((current) => !current)}
+            isOpen={isMockOpen}
+            isActive={isMockRouteActive}
+            onToggle={() => setIsMockOpen((current) => !current)}
           >
             {mockExamItems.map((item) => (
               <SidebarLink
@@ -213,7 +205,7 @@ export default function StudentSidebar() {
             icon={ClipboardDocumentCheckIcon}
             isCollapsed={isCollapsed}
             isOpen={isPracticeOpen}
-            isActive={practiceRouteActive}
+            isActive={isPracticeRouteActive}
             onToggle={() => setIsPracticeOpen((current) => !current)}
           >
             {practiceItems.map((item) => (
