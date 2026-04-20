@@ -18,12 +18,6 @@ import {
 
 const practiceItems = [
   {
-    href: "/student/practice",
-    label: "Practice",
-    icon: ClipboardDocumentCheckIcon,
-    exact: true,
-  },
-  {
     href: "/student/practice/grammar",
     label: "Grammar Practice",
     icon: AcademicCapIcon,
@@ -40,17 +34,35 @@ const practiceItems = [
   },
 ];
 
+const mockExamItems = [
+  {
+    href: "/student/mock-exams",
+    label: "Listening",
+    icon: AcademicCapIcon,
+  },
+  {
+    href: "/student/mock-exams",
+    label: "Reading",
+    icon: MusicalNoteIcon,
+  },
+  {
+    href: "/student/mock-exams",
+    label: "Writing",
+    icon: PencilSquareIcon,
+  },
+  {
+    href: "/student/mock-exams",
+    label: "Speaking",
+    icon: ClipboardDocumentCheckIcon,
+  },
+];
+
 const primaryItems = [
   {
     href: "/student",
     label: "Home Dashboard",
     icon: HomeIcon,
     exact: true,
-  },
-  {
-    href: "/student/mock-exams",
-    label: "Mock Exams",
-    icon: ComputerDesktopIcon,
   },
 ];
 
@@ -77,18 +89,69 @@ function SidebarLink({ href, icon: Icon, label, isCollapsed, isActive, nested })
   );
 }
 
+function SidebarSection({
+  label,
+  icon: Icon,
+  isCollapsed,
+  isOpen,
+  isActive,
+  onToggle,
+  children,
+}) {
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      <button
+        type="button"
+        className={`flex h-12 items-center rounded-xl px-3 ${
+          isActive || isOpen ? "bg-base-200 text-base-content" : "text-base-content/75"
+        }`}
+        title={isCollapsed ? label : undefined}
+        onClick={onToggle}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        {!isCollapsed && (
+          <>
+            <span className="ml-3 flex-1 truncate font-medium">{label}</span>
+            {isOpen ? (
+              <ChevronDownIcon className="h-4 w-4" />
+            ) : (
+              <ChevronRightIcon className="h-4 w-4" />
+            )}
+          </>
+        )}
+      </button>
+
+      {(isOpen || isActive || !isCollapsed) && (
+        <div className={`flex flex-col gap-1 ${isCollapsed ? "" : "pl-3"}`}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StudentSidebar() {
   const pathname = usePathname();
   const practiceRouteActive =
     pathname === "/student/practice" || pathname.startsWith("/student/practice/");
+  const mockExamsRouteActive =
+    pathname === "/student/mock-exams" ||
+    pathname.startsWith("/student/mock-exams/");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isPracticeOpen, setIsPracticeOpen] = useState(practiceRouteActive);
+  const [isMockExamsOpen, setIsMockExamsOpen] = useState(mockExamsRouteActive);
 
   useEffect(() => {
     if (practiceRouteActive) {
       setIsPracticeOpen(true);
     }
   }, [practiceRouteActive]);
+
+  useEffect(() => {
+    if (mockExamsRouteActive) {
+      setIsMockExamsOpen(true);
+    }
+  }, [mockExamsRouteActive]);
 
   return (
     <aside
@@ -117,7 +180,7 @@ export default function StudentSidebar() {
 
       <div className="flex flex-1 flex-col gap-3 px-3 py-4">
         <nav className="flex flex-col gap-1">
-          {primaryItems.slice(0, 1).map((item) => (
+          {primaryItems.map((item) => (
             <SidebarLink
               key={item.href}
               {...item}
@@ -126,55 +189,43 @@ export default function StudentSidebar() {
             />
           ))}
 
-          <div className="mt-2 flex flex-col gap-1">
-            <button
-              type="button"
-              className={`flex h-12 items-center rounded-xl px-3 ${
-                practiceRouteActive || isPracticeOpen
-                  ? "bg-base-200 text-base-content"
-                  : "text-base-content/75"
-              }`}
-              title={isCollapsed ? "Practice" : undefined}
-              onClick={() => setIsPracticeOpen((current) => !current)}
-            >
-              <ClipboardDocumentCheckIcon className="h-5 w-5 shrink-0" />
-              {!isCollapsed && (
-                <>
-                  <span className="ml-3 flex-1 truncate font-medium">Practice</span>
-                  {isPracticeOpen ? (
-                    <ChevronDownIcon className="h-4 w-4" />
-                  ) : (
-                    <ChevronRightIcon className="h-4 w-4" />
-                  )}
-                </>
-              )}
-            </button>
+          <SidebarSection
+            label="Mock Exams"
+            icon={ComputerDesktopIcon}
+            isCollapsed={isCollapsed}
+            isOpen={isMockExamsOpen}
+            isActive={mockExamsRouteActive}
+            onToggle={() => setIsMockExamsOpen((current) => !current)}
+          >
+            {mockExamItems.map((item) => (
+              <SidebarLink
+                key={`${item.href}-${item.label}`}
+                {...item}
+                isCollapsed={isCollapsed}
+                isActive={isItemActive(pathname, item.href, item.exact)}
+                nested
+              />
+            ))}
+          </SidebarSection>
 
-            {(isPracticeOpen || practiceRouteActive || !isCollapsed) && (
-              <div className={`flex flex-col gap-1 ${isCollapsed ? "" : "pl-3"}`}>
-                {practiceItems.map((item, index) => (
-                  <SidebarLink
-                    key={item.href}
-                    href={item.href}
-                    icon={index === 0 ? ChevronRightIcon : item.icon}
-                    label={item.label}
-                    isCollapsed={isCollapsed}
-                    isActive={isItemActive(pathname, item.href, item.exact)}
-                    nested
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {primaryItems.slice(1).map((item) => (
-            <SidebarLink
-              key={item.href}
-              {...item}
-              isCollapsed={isCollapsed}
-              isActive={isItemActive(pathname, item.href, item.exact)}
-            />
-          ))}
+          <SidebarSection
+            label="Practice"
+            icon={ClipboardDocumentCheckIcon}
+            isCollapsed={isCollapsed}
+            isOpen={isPracticeOpen}
+            isActive={practiceRouteActive}
+            onToggle={() => setIsPracticeOpen((current) => !current)}
+          >
+            {practiceItems.map((item) => (
+              <SidebarLink
+                key={item.href}
+                {...item}
+                isCollapsed={isCollapsed}
+                isActive={isItemActive(pathname, item.href, item.exact)}
+                nested
+              />
+            ))}
+          </SidebarSection>
         </nav>
 
         <div className="mt-auto pt-4">
