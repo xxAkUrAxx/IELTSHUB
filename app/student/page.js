@@ -62,24 +62,29 @@ const mockTests = [
     title: "Listening Test 1",
     difficulty: "Easy",
     icon: SpeakerWaveIcon,
+    completed: false,
   },
   {
     type: "reading",
     title: "Reading Test 1",
     difficulty: "Medium",
     icon: BookOpenIcon,
+    completed: false,
   },
   {
     type: "writing",
     title: "Writing Test 1",
     difficulty: "Hard",
     icon: PencilSquareIcon,
+    completed: false,
   },
   {
     type: "speaking",
     title: "Speaking Test 1",
     difficulty: "Medium",
     icon: MicrophoneIcon,
+    completed: true,
+    score: 6.5,
   },
 ];
 
@@ -147,26 +152,66 @@ function SidebarSection({
   );
 }
 
-function TestCard({ title, difficulty, icon: Icon }) {
+function TestCard({ title, difficulty, icon: Icon, completed = false, score }) {
+  function handleReview() {
+    window.alert("Review coming soon");
+  }
+
   return (
-    <div className="card border border-base-300 bg-base-100 shadow-sm">
+    <div
+      className={`card border bg-base-100 shadow-sm ${
+        completed ? "border-success/40 shadow-success/10" : "border-base-300"
+      }`}
+    >
       <div className="card-body gap-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <h2 className="card-title text-xl">{title}</h2>
-            <div className="badge badge-outline">{difficulty}</div>
+            {completed ? (
+              <div className="badge badge-success badge-outline">Completed</div>
+            ) : (
+              <div className="badge badge-outline">{difficulty}</div>
+            )}
           </div>
 
-          <div className="rounded-2xl bg-base-200 p-3 text-base-content/75">
-            <Icon className="h-6 w-6" />
+          <div className="flex items-start gap-3">
+            {completed ? (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-success/30 bg-success/10 text-center">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-success">
+                    Band
+                  </p>
+                  <p className="text-lg font-bold text-success">{score}</p>
+                </div>
+              </div>
+            ) : null}
+
+            <div
+              className={`rounded-2xl p-3 ${
+                completed ? "bg-success/10 text-success" : "bg-base-200 text-base-content/75"
+              }`}
+            >
+              <Icon className="h-6 w-6" />
+            </div>
           </div>
         </div>
 
-        <div className="card-actions justify-end">
-          <button type="button" className="btn btn-primary">
-            Start
-          </button>
-        </div>
+        {completed ? (
+          <div className="card-actions justify-end">
+            <button type="button" className="btn btn-outline" onClick={handleReview}>
+              Review
+            </button>
+            <button type="button" className="btn btn-success">
+              Retake
+            </button>
+          </div>
+        ) : (
+          <div className="card-actions justify-end">
+            <button type="button" className="btn btn-primary">
+              Start
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
