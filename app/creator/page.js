@@ -1,8 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import {
   AcademicCapIcon,
+  Bars3Icon,
   BookOpenIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardDocumentCheckIcon,
   ClockIcon,
@@ -15,18 +19,22 @@ import { useRequireRole } from "../../lib/firebase/role-guard";
 
 const mockTestItems = [
   {
+    key: "reading",
     label: "Reading",
     icon: BookOpenIcon,
   },
   {
+    key: "writing",
     label: "Writing",
     icon: PencilSquareIcon,
   },
   {
+    key: "listening",
     label: "Listening",
     icon: MusicalNoteIcon,
   },
   {
+    key: "speaking",
     label: "Speaking",
     icon: MicrophoneIcon,
   },
@@ -34,113 +42,156 @@ const mockTestItems = [
 
 const practiceActivityItems = [
   {
+    key: "grammar",
     label: "Grammar",
     icon: AcademicCapIcon,
   },
   {
+    key: "listening",
     label: "Listening",
     icon: MusicalNoteIcon,
   },
   {
+    key: "speed-typing",
     label: "Speed Typing",
     icon: ClockIcon,
   },
 ];
 
-function CreatorSectionCard({ title, description, icon: Icon, items }) {
+function SidebarItem({ label, icon: Icon, isCollapsed, onClick, nested = false }) {
   return (
-    <section className="card border border-base-300 bg-base-100 shadow-sm">
-      <div className="card-body gap-6 p-6 md:p-8">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
-              Creator Tools
-            </p>
-            <h2 className="card-title text-2xl font-semibold tracking-tight">
-              {title}
-            </h2>
-            <p className="max-w-2xl text-sm leading-6 text-base-content/65">
-              {description}
-            </p>
-          </div>
+    <button
+      type="button"
+      onClick={onClick}
+      title={isCollapsed ? label : undefined}
+      className={`btn btn-ghost h-12 justify-start rounded-xl px-3 normal-case text-base-content/70 transition hover:bg-base-200 hover:text-base-content ${
+        nested ? "text-sm" : ""
+      }`}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      {!isCollapsed && <span className="truncate">{label}</span>}
+    </button>
+  );
+}
 
-          <div className="rounded-2xl bg-base-200 p-3 text-base-content/75">
-            <Icon className="h-6 w-6" />
-          </div>
+function SidebarSection({
+  label,
+  icon: Icon,
+  items,
+  isCollapsed,
+  isOpen,
+  onToggle,
+}) {
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={onToggle}
+        title={isCollapsed ? label : undefined}
+        className={`flex h-12 items-center rounded-xl px-3 transition ${
+          isOpen
+            ? "bg-base-200 text-base-content"
+            : "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+        }`}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        {!isCollapsed && (
+          <>
+            <span className="ml-3 flex-1 truncate text-left font-medium">
+              {label}
+            </span>
+            {isOpen ? (
+              <ChevronDownIcon className="h-4 w-4" />
+            ) : (
+              <ChevronRightIcon className="h-4 w-4" />
+            )}
+          </>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className={`flex flex-col gap-1 ${isCollapsed ? "" : "pl-3"}`}>
+          {items.map((item) => (
+            <SidebarItem
+              key={item.key}
+              label={item.label}
+              icon={item.icon}
+              isCollapsed={isCollapsed}
+              onClick={() => {}}
+              nested
+            />
+          ))}
         </div>
-
-        <div className="grid gap-3">
-          {items.map((item) => {
-            const ItemIcon = item.icon;
-
-            return (
-              <button
-                key={item.label}
-                type="button"
-                className="btn h-auto min-h-0 justify-between rounded-2xl border border-base-300 bg-base-100 px-4 py-4 text-left normal-case shadow-none transition hover:border-primary/30 hover:bg-base-200"
-              >
-                <span className="flex items-center gap-3">
-                  <span className="rounded-xl bg-base-200 p-2 text-base-content/75">
-                    <ItemIcon className="h-5 w-5" />
-                  </span>
-                  <span className="text-base font-medium text-base-content">
-                    {item.label}
-                  </span>
-                </span>
-                <ChevronRightIcon className="h-5 w-5 text-base-content/40" />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }
 
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMockOpen, setIsMockOpen] = useState(true);
+  const [isPracticeOpen, setIsPracticeOpen] = useState(true);
 
   if (!isAuthorized) {
     return null;
   }
 
   return (
-    <main className="min-h-screen bg-base-200 px-6 py-8 text-base-content md:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-        <header className="rounded-3xl border border-base-300 bg-base-100 shadow-sm">
-          <div className="flex flex-col gap-4 p-6 md:p-8">
+    <div className="flex min-h-screen bg-base-200 text-base-content">
+      <aside
+        className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-base-300 bg-base-100/95 backdrop-blur transition-all duration-300 ${
+          isCollapsed ? "w-20" : "w-72"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-base-300 px-4 py-4">
+          {!isCollapsed && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
                 Creator
               </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-                Content Dashboard
-              </h1>
+              <h1 className="text-lg font-semibold">Dashboard</h1>
             </div>
-            <p className="max-w-3xl text-sm leading-6 text-base-content/65 md:text-base">
-              Choose a content type to start building new mock tests or practice
-              activities. This page is UI-only for now and follows the student
-              dashboard layout, spacing, colors, and card structure.
-            </p>
-          </div>
-        </header>
+          )}
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <CreatorSectionCard
-            title="Create Mock Test"
-            description="Set up IELTS-style mock test content for each core skill area."
-            icon={ComputerDesktopIcon}
-            items={mockTestItems}
-          />
-
-          <CreatorSectionCard
-            title="Create Practice Activity"
-            description="Prepare targeted practice activities for focused student improvement."
-            icon={ClipboardDocumentCheckIcon}
-            items={practiceActivityItems}
-          />
+          <button
+            type="button"
+            className="btn btn-ghost btn-square rounded-xl"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setIsCollapsed((current) => !current)}
+          >
+            {isCollapsed ? (
+              <Bars3Icon className="h-5 w-5" />
+            ) : (
+              <ChevronLeftIcon className="h-5 w-5" />
+            )}
+          </button>
         </div>
-      </div>
-    </main>
+
+        <div className="flex flex-1 flex-col gap-3 px-3 py-4">
+          <nav className="flex flex-col gap-1">
+            <SidebarSection
+              label="Create Mock Test"
+              icon={ComputerDesktopIcon}
+              items={mockTestItems}
+              isCollapsed={isCollapsed}
+              isOpen={isMockOpen}
+              onToggle={() => setIsMockOpen((current) => !current)}
+            />
+
+            <SidebarSection
+              label="Create Practice Activity"
+              icon={ClipboardDocumentCheckIcon}
+              items={practiceActivityItems}
+              isCollapsed={isCollapsed}
+              isOpen={isPracticeOpen}
+              onToggle={() => setIsPracticeOpen((current) => !current)}
+            />
+          </nav>
+        </div>
+      </aside>
+
+      <main className="flex-1" />
+    </div>
   );
 }
