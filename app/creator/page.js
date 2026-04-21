@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AcademicCapIcon,
   Bars3Icon,
@@ -15,10 +16,7 @@ import {
   MusicalNoteIcon,
   PencilSquareIcon,
   PlusIcon,
-  XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
 const mockTestItems = [
@@ -29,7 +27,6 @@ const mockTestItems = [
     icon: BookOpenIcon,
     type: "reading",
     category: "mock",
-    collectionName: "mockTests",
   },
   {
     key: "writing",
@@ -38,7 +35,6 @@ const mockTestItems = [
     icon: PencilSquareIcon,
     type: "writing",
     category: "mock",
-    collectionName: "mockTests",
   },
   {
     key: "listening",
@@ -47,7 +43,6 @@ const mockTestItems = [
     icon: MusicalNoteIcon,
     type: "listening",
     category: "mock",
-    collectionName: "mockTests",
   },
   {
     key: "speaking",
@@ -56,7 +51,6 @@ const mockTestItems = [
     icon: MicrophoneIcon,
     type: "speaking",
     category: "mock",
-    collectionName: "mockTests",
   },
 ];
 
@@ -68,7 +62,6 @@ const practiceActivityItems = [
     icon: AcademicCapIcon,
     type: "grammar",
     category: "practice",
-    collectionName: "practiceActivities",
   },
   {
     key: "speed-typing",
@@ -77,11 +70,8 @@ const practiceActivityItems = [
     icon: ClockIcon,
     type: "speed-typing",
     category: "practice",
-    collectionName: "practiceActivities",
   },
 ];
-
-const difficultyOptions = ["Easy", "Medium", "Hard"];
 
 function SidebarItem({
   item,
@@ -166,98 +156,6 @@ function SidebarSection({
   );
 }
 
-function CreateItemModal({
-  selectedItem,
-  formData,
-  isSaving,
-  onClose,
-  onChange,
-  onDifficultyChange,
-  onSubmit,
-}) {
-  if (!selectedItem) {
-    return null;
-  }
-
-  return (
-    <dialog className="modal modal-open">
-      <div className="modal-box max-w-md rounded-3xl border border-base-300 bg-base-100 p-0 shadow-xl">
-        <div className="flex items-center justify-between border-b border-base-300 px-6 py-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
-              Create New
-            </p>
-            <h3 className="text-xl font-semibold">{selectedItem.label}</h3>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-ghost btn-square btn-sm rounded-xl"
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-5 px-6 py-6">
-          <div className="form-control">
-            <label htmlFor="test-name" className="label">
-              <span className="label-text font-medium">Test Name</span>
-            </label>
-            <input
-              id="test-name"
-              name="testName"
-              type="text"
-              value={formData.testName}
-              onChange={onChange}
-              placeholder={`Enter ${selectedItem.label.toLowerCase()} title`}
-              className="input input-bordered w-full"
-              required
-            />
-          </div>
-
-          <div className="form-control gap-3">
-            <label className="label py-0">
-              <span className="label-text font-medium">Difficulty</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {difficultyOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => onDifficultyChange(option)}
-                  className={`btn btn-sm rounded-xl ${
-                    formData.difficulty === option
-                      ? "btn-primary"
-                      : "btn-outline border-base-300"
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={onClose}
-              disabled={isSaving}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={isSaving}>
-              {isSaving ? "Creating..." : "Create"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </dialog>
-  );
-}
-
 function CreatorContent({ selectedItem, onCreateNew }) {
   if (!selectedItem) {
     return (
@@ -296,91 +194,24 @@ function CreatorContent({ selectedItem, onCreateNew }) {
 }
 
 export default function CreatorPage() {
+  const router = useRouter();
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(true);
   const [isPracticeOpen, setIsPracticeOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState(mockTestItems[0]);
-  const [modalItem, setModalItem] = useState(null);
-  const [formData, setFormData] = useState({
-    testName: "",
-    difficulty: difficultyOptions[0],
-  });
-  const [isSaving, setIsSaving] = useState(false);
 
   function handleSelectItem(item) {
     setSelectedItem(item);
   }
 
-  function handleOpenModal() {
+  function handleCreateNew() {
     if (!selectedItem) {
       return;
     }
 
-    setModalItem(selectedItem);
-    setFormData({
-      testName: "",
-      difficulty: difficultyOptions[0],
-    });
-  }
-
-  function handleCloseModal() {
-    if (isSaving) {
-      return;
-    }
-
-    setModalItem(null);
-  }
-
-  function handleChange(event) {
-    const { name, value } = event.target;
-
-    setFormData((current) => ({
-      ...current,
-      [name]: value,
-    }));
-  }
-
-  function handleDifficultyChange(difficulty) {
-    setFormData((current) => ({
-      ...current,
-      difficulty,
-    }));
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-
-    if (!modalItem) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    const payload = {
-      name: formData.testName,
-      difficulty: formData.difficulty,
-      type: modalItem.type,
-      category: modalItem.category,
-      createdAt: serverTimestamp(),
-    };
-
-    try {
-      await addDoc(collection(db, modalItem.collectionName), payload);
-      console.log("[Creator] Saved item:", {
-        ...payload,
-        createdAt: new Date().toISOString(),
-      });
-      setModalItem(null);
-      setFormData({
-        testName: "",
-        difficulty: difficultyOptions[0],
-      });
-    } catch (error) {
-      console.error("[Creator] Failed to save item:", error);
-    } finally {
-      setIsSaving(false);
-    }
+    window.alert("CLICK WORKS");
+    router.push("/creator/create");
   }
 
   if (!isAuthorized) {
@@ -388,80 +219,68 @@ export default function CreatorPage() {
   }
 
   return (
-    <>
-      <div className="flex min-h-screen bg-base-200 text-base-content">
-        <aside
-          className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-base-300 bg-base-100/95 backdrop-blur ${
-            isCollapsed ? "w-20" : "w-72"
-          }`}
-        >
-          <div className="flex items-center justify-between border-b border-base-300 px-4 py-4">
-            {!isCollapsed && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
-                  Creator
-                </p>
-                <h1 className="text-lg font-semibold">Dashboard</h1>
-              </div>
+    <div className="flex min-h-screen bg-base-200 text-base-content">
+      <aside
+        className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-base-300 bg-base-100/95 backdrop-blur ${
+          isCollapsed ? "w-20" : "w-72"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-base-300 px-4 py-4">
+          {!isCollapsed && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+                Creator
+              </p>
+              <h1 className="text-lg font-semibold">Dashboard</h1>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-square rounded-xl"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setIsCollapsed((current) => !current)}
+          >
+            {isCollapsed ? (
+              <Bars3Icon className="h-5 w-5" />
+            ) : (
+              <ChevronLeftIcon className="h-5 w-5" />
             )}
+          </button>
+        </div>
 
-            <button
-              type="button"
-              className="btn btn-ghost btn-square rounded-xl"
-              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={() => setIsCollapsed((current) => !current)}
-            >
-              {isCollapsed ? (
-                <Bars3Icon className="h-5 w-5" />
-              ) : (
-                <ChevronLeftIcon className="h-5 w-5" />
-              )}
-            </button>
-          </div>
+        <div className="flex flex-1 flex-col gap-3 px-3 py-4">
+          <nav className="flex flex-col gap-1">
+            <SidebarSection
+              label="Create Mock Test"
+              icon={ComputerDesktopIcon}
+              items={mockTestItems}
+              isCollapsed={isCollapsed}
+              isOpen={isMockOpen}
+              activeItemKey={selectedItem?.key}
+              onToggle={() => setIsMockOpen((current) => !current)}
+              onSelect={handleSelectItem}
+            />
 
-          <div className="flex flex-1 flex-col gap-3 px-3 py-4">
-            <nav className="flex flex-col gap-1">
-              <SidebarSection
-                label="Create Mock Test"
-                icon={ComputerDesktopIcon}
-                items={mockTestItems}
-                isCollapsed={isCollapsed}
-                isOpen={isMockOpen}
-                activeItemKey={selectedItem?.key}
-                onToggle={() => setIsMockOpen((current) => !current)}
-                onSelect={handleSelectItem}
-              />
+            <SidebarSection
+              label="Create Practice Activity"
+              icon={ClipboardDocumentCheckIcon}
+              items={practiceActivityItems}
+              isCollapsed={isCollapsed}
+              isOpen={isPracticeOpen}
+              activeItemKey={selectedItem?.key}
+              onToggle={() => setIsPracticeOpen((current) => !current)}
+              onSelect={handleSelectItem}
+            />
+          </nav>
+        </div>
+      </aside>
 
-              <SidebarSection
-                label="Create Practice Activity"
-                icon={ClipboardDocumentCheckIcon}
-                items={practiceActivityItems}
-                isCollapsed={isCollapsed}
-                isOpen={isPracticeOpen}
-                activeItemKey={selectedItem?.key}
-                onToggle={() => setIsPracticeOpen((current) => !current)}
-                onSelect={handleSelectItem}
-              />
-            </nav>
-          </div>
-        </aside>
-
-        <main className="flex-1 overflow-x-auto">
-          <div className="min-h-screen p-6 md:p-8">
-            <CreatorContent selectedItem={selectedItem} onCreateNew={handleOpenModal} />
-          </div>
-        </main>
-      </div>
-
-      <CreateItemModal
-        selectedItem={modalItem}
-        formData={formData}
-        isSaving={isSaving}
-        onClose={handleCloseModal}
-        onChange={handleChange}
-        onDifficultyChange={handleDifficultyChange}
-        onSubmit={handleSubmit}
-      />
-    </>
+      <main className="flex-1 overflow-x-auto">
+        <div className="min-h-screen p-6 md:p-8">
+          <CreatorContent selectedItem={selectedItem} onCreateNew={handleCreateNew} />
+        </div>
+      </main>
+    </div>
   );
 }
