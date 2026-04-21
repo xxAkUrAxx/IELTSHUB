@@ -17,38 +17,36 @@ import {
   PlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
 const mockTestItems = [
   {
     key: "reading",
     label: "Reading",
+    pageTitle: "Reading Tests",
     icon: BookOpenIcon,
     type: "reading",
-    collectionName: "mockTests",
   },
   {
     key: "writing",
     label: "Writing",
+    pageTitle: "Writing Tests",
     icon: PencilSquareIcon,
     type: "writing",
-    collectionName: "mockTests",
   },
   {
     key: "listening",
     label: "Listening",
+    pageTitle: "Listening Tests",
     icon: MusicalNoteIcon,
     type: "listening",
-    collectionName: "mockTests",
   },
   {
     key: "speaking",
     label: "Speaking",
+    pageTitle: "Speaking Tests",
     icon: MicrophoneIcon,
     type: "speaking",
-    collectionName: "mockTests",
   },
 ];
 
@@ -56,23 +54,16 @@ const practiceActivityItems = [
   {
     key: "grammar",
     label: "Grammar",
+    pageTitle: "Grammar Activities",
     icon: AcademicCapIcon,
     type: "grammar",
-    collectionName: "practiceActivities",
-  },
-  {
-    key: "listening-practice",
-    label: "Listening",
-    icon: MusicalNoteIcon,
-    type: "listening",
-    collectionName: "practiceActivities",
   },
   {
     key: "speed-typing",
     label: "Speed Typing",
+    pageTitle: "Speed Typing Activities",
     icon: ClockIcon,
     type: "speed-typing",
-    collectionName: "practiceActivities",
   },
 ];
 
@@ -85,39 +76,26 @@ function formatToday() {
 function SidebarItem({
   item,
   isCollapsed,
-  onOpenModal,
+  isActive,
+  onSelect,
   nested = false,
 }) {
   const Icon = item.icon;
 
   return (
-    <div
-      className={`flex items-center gap-2 rounded-xl px-2 py-1 transition hover:bg-base-200 ${
-        nested ? "" : "min-h-12"
-      }`}
+    <button
+      type="button"
+      onClick={() => onSelect(item)}
+      title={isCollapsed ? item.label : undefined}
+      className={`btn btn-ghost h-12 justify-start rounded-xl px-3 normal-case transition ${
+        isActive
+          ? "bg-base-100 text-primary shadow-sm"
+          : "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+      } ${nested ? "text-sm" : ""}`}
     >
-      <button
-        type="button"
-        title={isCollapsed ? item.label : undefined}
-        className={`btn btn-ghost h-10 flex-1 justify-start rounded-xl px-2 normal-case text-base-content/70 hover:bg-transparent hover:text-base-content ${
-          nested ? "text-sm" : ""
-        }`}
-      >
-        <Icon className="h-5 w-5 shrink-0" />
-        {!isCollapsed && <span className="truncate">{item.label}</span>}
-      </button>
-
-      {!isCollapsed && (
-        <button
-          type="button"
-          onClick={() => onOpenModal(item)}
-          className="btn btn-ghost btn-xs gap-1 rounded-lg border border-base-300 px-2 normal-case text-base-content/65 hover:border-primary/30 hover:bg-base-100 hover:text-primary"
-        >
-          <PlusIcon className="h-3.5 w-3.5" />
-          <span>Create New</span>
-        </button>
-      )}
-    </div>
+      <Icon className="h-5 w-5 shrink-0" />
+      {!isCollapsed && <span className="truncate">{item.label}</span>}
+    </button>
   );
 }
 
@@ -127,9 +105,12 @@ function SidebarSection({
   items,
   isCollapsed,
   isOpen,
+  activeItemKey,
   onToggle,
-  onOpenModal,
+  onSelect,
 }) {
+  const hasActiveItem = items.some((item) => item.key === activeItemKey);
+
   return (
     <div className="mt-2 flex flex-col gap-1">
       <button
@@ -137,7 +118,7 @@ function SidebarSection({
         onClick={onToggle}
         title={isCollapsed ? label : undefined}
         className={`flex h-12 items-center rounded-xl px-3 transition ${
-          isOpen
+          hasActiveItem || isOpen
             ? "bg-base-200 text-base-content"
             : "text-base-content/70 hover:bg-base-200 hover:text-base-content"
         }`}
@@ -164,7 +145,8 @@ function SidebarSection({
               key={item.key}
               item={item}
               isCollapsed={isCollapsed}
-              onOpenModal={onOpenModal}
+              isActive={activeItemKey === item.key}
+              onSelect={onSelect}
               nested
             />
           ))}
@@ -177,9 +159,6 @@ function SidebarSection({
 function CreateItemModal({
   selectedItem,
   formData,
-  isSaving,
-  saveError,
-  saveSuccess,
   onClose,
   onChange,
   onSubmit,
@@ -259,22 +238,12 @@ function CreateItemModal({
             />
           </div>
 
-          {saveError ? <p className="text-sm text-error">{saveError}</p> : null}
-          {saveSuccess ? (
-            <p className="text-sm text-success">{saveSuccess}</p>
-          ) : null}
-
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={onClose}
-              disabled={isSaving}
-            >
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save"}
+            <button type="submit" className="btn btn-primary">
+              Save
             </button>
           </div>
         </form>
@@ -283,40 +252,75 @@ function CreateItemModal({
   );
 }
 
+function CreatorContent({ selectedItem, onCreateNew }) {
+  if (!selectedItem) {
+    return (
+      <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+          <p className="text-lg font-medium text-base-content/65">
+            Select a creator item from the sidebar.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex min-h-[calc(100vh-4rem)] flex-col">
+      <header className="mb-8 flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {selectedItem.pageTitle}
+        </h1>
+
+        <button type="button" className="btn btn-primary gap-2" onClick={onCreateNew}>
+          <PlusIcon className="h-5 w-5" />
+          <span>Create New</span>
+        </button>
+      </header>
+
+      <div className="flex flex-1 items-center justify-center">
+        <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+          <p className="text-base-content/65">
+            Content area for {selectedItem.label.toLowerCase()} will appear here.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(true);
   const [isPracticeOpen, setIsPracticeOpen] = useState(true);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(mockTestItems[0]);
+  const [modalItem, setModalItem] = useState(null);
   const [formData, setFormData] = useState({
     testName: "",
     difficulty: difficultyOptions[0],
     date: formatToday(),
   });
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [saveSuccess, setSaveSuccess] = useState("");
 
-  function handleOpenModal(item) {
+  function handleSelectItem(item) {
     setSelectedItem(item);
+  }
+
+  function handleOpenModal() {
+    if (!selectedItem) {
+      return;
+    }
+
+    setModalItem(selectedItem);
     setFormData({
       testName: "",
       difficulty: difficultyOptions[0],
       date: formatToday(),
     });
-    setSaveError("");
-    setSaveSuccess("");
   }
 
   function handleCloseModal() {
-    if (isSaving) {
-      return;
-    }
-
-    setSelectedItem(null);
-    setSaveError("");
-    setSaveSuccess("");
+    setModalItem(null);
   }
 
   function handleChange(event) {
@@ -328,52 +332,9 @@ export default function CreatorPage() {
     }));
   }
 
-  async function handleSubmit(event) {
+  function handleSubmit(event) {
     event.preventDefault();
-
-    if (!selectedItem) {
-      return;
-    }
-
-    const matchedItem = [...mockTestItems, ...practiceActivityItems].find(
-      (item) => item.key === selectedItem.key
-    );
-
-    if (!matchedItem) {
-      setSaveError("Selected item could not be resolved.");
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveError("");
-    setSaveSuccess("");
-
-    try {
-      await addDoc(collection(db, matchedItem.collectionName), {
-        name: formData.testName.trim(),
-        difficulty: formData.difficulty,
-        type: matchedItem.type,
-        date: formData.date,
-        createdAt: serverTimestamp(),
-      });
-
-      setSaveSuccess("Saved successfully.");
-      setFormData({
-        testName: "",
-        difficulty: difficultyOptions[0],
-        date: formatToday(),
-      });
-
-      window.setTimeout(() => {
-        setSelectedItem(null);
-        setSaveSuccess("");
-      }, 500);
-    } catch (error) {
-      console.error("[Creator] Failed to save item:", error);
-      setSaveError("Unable to save right now. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
+    setModalItem(null);
   }
 
   if (!isAuthorized) {
@@ -384,8 +345,8 @@ export default function CreatorPage() {
     <>
       <div className="flex min-h-screen bg-base-200 text-base-content">
         <aside
-          className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-base-300 bg-base-100/95 backdrop-blur transition-all duration-300 ${
-            isCollapsed ? "w-20" : "w-80"
+          className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-base-300 bg-base-100/95 backdrop-blur ${
+            isCollapsed ? "w-20" : "w-72"
           }`}
         >
           <div className="flex items-center justify-between border-b border-base-300 px-4 py-4">
@@ -420,8 +381,9 @@ export default function CreatorPage() {
                 items={mockTestItems}
                 isCollapsed={isCollapsed}
                 isOpen={isMockOpen}
+                activeItemKey={selectedItem?.key}
                 onToggle={() => setIsMockOpen((current) => !current)}
-                onOpenModal={handleOpenModal}
+                onSelect={handleSelectItem}
               />
 
               <SidebarSection
@@ -430,22 +392,24 @@ export default function CreatorPage() {
                 items={practiceActivityItems}
                 isCollapsed={isCollapsed}
                 isOpen={isPracticeOpen}
+                activeItemKey={selectedItem?.key}
                 onToggle={() => setIsPracticeOpen((current) => !current)}
-                onOpenModal={handleOpenModal}
+                onSelect={handleSelectItem}
               />
             </nav>
           </div>
         </aside>
 
-        <main className="flex-1" />
+        <main className="flex-1 overflow-x-auto">
+          <div className="min-h-screen p-6 md:p-8">
+            <CreatorContent selectedItem={selectedItem} onCreateNew={handleOpenModal} />
+          </div>
+        </main>
       </div>
 
       <CreateItemModal
-        selectedItem={selectedItem}
+        selectedItem={modalItem}
         formData={formData}
-        isSaving={isSaving}
-        saveError={saveError}
-        saveSuccess={saveSuccess}
         onClose={handleCloseModal}
         onChange={handleChange}
         onSubmit={handleSubmit}
