@@ -17,6 +17,8 @@ import {
   PlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
 const mockTestItems = [
@@ -26,6 +28,8 @@ const mockTestItems = [
     pageTitle: "Reading Tests",
     icon: BookOpenIcon,
     type: "reading",
+    category: "mock",
+    collectionName: "mockTests",
   },
   {
     key: "writing",
@@ -33,6 +37,8 @@ const mockTestItems = [
     pageTitle: "Writing Tests",
     icon: PencilSquareIcon,
     type: "writing",
+    category: "mock",
+    collectionName: "mockTests",
   },
   {
     key: "listening",
@@ -40,6 +46,8 @@ const mockTestItems = [
     pageTitle: "Listening Tests",
     icon: MusicalNoteIcon,
     type: "listening",
+    category: "mock",
+    collectionName: "mockTests",
   },
   {
     key: "speaking",
@@ -47,6 +55,8 @@ const mockTestItems = [
     pageTitle: "Speaking Tests",
     icon: MicrophoneIcon,
     type: "speaking",
+    category: "mock",
+    collectionName: "mockTests",
   },
 ];
 
@@ -57,6 +67,8 @@ const practiceActivityItems = [
     pageTitle: "Grammar Activities",
     icon: AcademicCapIcon,
     type: "grammar",
+    category: "practice",
+    collectionName: "practiceActivities",
   },
   {
     key: "speed-typing",
@@ -64,14 +76,12 @@ const practiceActivityItems = [
     pageTitle: "Speed Typing Activities",
     icon: ClockIcon,
     type: "speed-typing",
+    category: "practice",
+    collectionName: "practiceActivities",
   },
 ];
 
 const difficultyOptions = ["Easy", "Medium", "Hard"];
-
-function formatToday() {
-  return new Date().toLocaleDateString("en-CA");
-}
 
 function SidebarItem({
   item,
@@ -159,8 +169,10 @@ function SidebarSection({
 function CreateItemModal({
   selectedItem,
   formData,
+  isSaving,
   onClose,
   onChange,
+  onDifficultyChange,
   onSubmit,
 }) {
   if (!selectedItem) {
@@ -205,45 +217,39 @@ function CreateItemModal({
             />
           </div>
 
-          <div className="form-control">
-            <label htmlFor="difficulty" className="label">
+          <div className="form-control gap-3">
+            <label className="label py-0">
               <span className="label-text font-medium">Difficulty</span>
             </label>
-            <select
-              id="difficulty"
-              name="difficulty"
-              value={formData.difficulty}
-              onChange={onChange}
-              className="select select-bordered w-full"
-              required
-            >
+            <div className="flex flex-wrap gap-2">
               {difficultyOptions.map((option) => (
-                <option key={option} value={option}>
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onDifficultyChange(option)}
+                  className={`btn btn-sm rounded-xl ${
+                    formData.difficulty === option
+                      ? "btn-primary"
+                      : "btn-outline border-base-300"
+                  }`}
+                >
                   {option}
-                </option>
+                </button>
               ))}
-            </select>
-          </div>
-
-          <div className="form-control">
-            <label htmlFor="date-created" className="label">
-              <span className="label-text font-medium">Date</span>
-            </label>
-            <input
-              id="date-created"
-              type="text"
-              value={formData.date}
-              className="input input-bordered w-full"
-              readOnly
-            />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onClose}
+              disabled={isSaving}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Save
+            <button type="submit" className="btn btn-primary" disabled={isSaving}>
+              {isSaving ? "Creating..." : "Create"}
             </button>
           </div>
         </form>
@@ -299,8 +305,8 @@ export default function CreatorPage() {
   const [formData, setFormData] = useState({
     testName: "",
     difficulty: difficultyOptions[0],
-    date: formatToday(),
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   function handleSelectItem(item) {
     setSelectedItem(item);
@@ -315,11 +321,14 @@ export default function CreatorPage() {
     setFormData({
       testName: "",
       difficulty: difficultyOptions[0],
-      date: formatToday(),
     });
   }
 
   function handleCloseModal() {
+    if (isSaving) {
+      return;
+    }
+
     setModalItem(null);
   }
 
@@ -332,9 +341,46 @@ export default function CreatorPage() {
     }));
   }
 
-  function handleSubmit(event) {
+  function handleDifficultyChange(difficulty) {
+    setFormData((current) => ({
+      ...current,
+      difficulty,
+    }));
+  }
+
+  async function handleSubmit(event) {
     event.preventDefault();
-    setModalItem(null);
+
+    if (!modalItem) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    const payload = {
+      name: formData.testName,
+      difficulty: formData.difficulty,
+      type: modalItem.type,
+      category: modalItem.category,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await addDoc(collection(db, modalItem.collectionName), payload);
+      console.log("[Creator] Saved item:", {
+        ...payload,
+        createdAt: new Date().toISOString(),
+      });
+      setModalItem(null);
+      setFormData({
+        testName: "",
+        difficulty: difficultyOptions[0],
+      });
+    } catch (error) {
+      console.error("[Creator] Failed to save item:", error);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   if (!isAuthorized) {
@@ -410,8 +456,10 @@ export default function CreatorPage() {
       <CreateItemModal
         selectedItem={modalItem}
         formData={formData}
+        isSaving={isSaving}
         onClose={handleCloseModal}
         onChange={handleChange}
+        onDifficultyChange={handleDifficultyChange}
         onSubmit={handleSubmit}
       />
     </>
