@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   AcademicCapIcon,
   Bars3Icon,
@@ -17,6 +16,8 @@ import {
   PencilSquareIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
 const mockTestItems = [
@@ -72,6 +73,20 @@ const practiceActivityItems = [
     category: "practice",
   },
 ];
+
+const difficultyOptions = ["Easy", "Medium", "Hard"];
+
+const initialReadingForm = {
+  name: "",
+  difficulty: difficultyOptions[0],
+  section1Passage: "",
+  section1Questions: "",
+  section2Passage: "",
+  section2Questions: "",
+  section3Passage: "",
+  section3Questions: "",
+  answers: "",
+};
 
 function SidebarItem({
   item,
@@ -156,7 +171,218 @@ function SidebarSection({
   );
 }
 
-function CreatorContent({ selectedItem, onCreateNew }) {
+function ReadingCreateForm({
+  formData,
+  isSaving,
+  onFieldChange,
+  onDifficultySelect,
+  onCancel,
+  onSave,
+}) {
+  return (
+    <section className="flex min-h-[calc(100vh-4rem)] flex-col gap-6">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+            Mock Test
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            Create Reading Test
+          </h1>
+        </div>
+
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          Back to Reading
+        </button>
+      </header>
+
+      <form onSubmit={onSave} className="grid gap-6">
+        <section className="card border border-base-300 bg-base-100 shadow-sm">
+          <div className="card-body gap-6 p-6 md:p-8">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div className="form-control">
+                <label htmlFor="reading-test-name" className="label">
+                  <span className="label-text font-medium">Test Name</span>
+                </label>
+                <input
+                  id="reading-test-name"
+                  name="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={onFieldChange}
+                  className="input input-bordered w-full"
+                  placeholder="Enter reading test name"
+                />
+              </div>
+
+              <div className="form-control gap-3">
+                <label className="label py-0">
+                  <span className="label-text font-medium">Difficulty</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {difficultyOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => onDifficultySelect(option)}
+                      className={`btn rounded-xl ${
+                        formData.difficulty === option
+                          ? "btn-primary"
+                          : "btn-outline border-base-300"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="card border border-base-300 bg-base-100 shadow-sm">
+          <div className="card-body gap-6 p-6 md:p-8">
+            <h2 className="card-title text-xl">Section 1</h2>
+
+            <div className="form-control">
+              <label htmlFor="section-1-passage" className="label">
+                <span className="label-text font-medium">Passage</span>
+              </label>
+              <textarea
+                id="section-1-passage"
+                name="section1Passage"
+                value={formData.section1Passage}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-44 w-full"
+                placeholder="Enter section 1 passage"
+              />
+            </div>
+
+            <div className="form-control">
+              <label htmlFor="section-1-questions" className="label">
+                <span className="label-text font-medium">Questions</span>
+              </label>
+              <textarea
+                id="section-1-questions"
+                name="section1Questions"
+                value={formData.section1Questions}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-36 w-full"
+                placeholder="Enter section 1 questions"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="card border border-base-300 bg-base-100 shadow-sm">
+          <div className="card-body gap-6 p-6 md:p-8">
+            <h2 className="card-title text-xl">Section 2</h2>
+
+            <div className="form-control">
+              <label htmlFor="section-2-passage" className="label">
+                <span className="label-text font-medium">Passage</span>
+              </label>
+              <textarea
+                id="section-2-passage"
+                name="section2Passage"
+                value={formData.section2Passage}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-44 w-full"
+                placeholder="Enter section 2 passage"
+              />
+            </div>
+
+            <div className="form-control">
+              <label htmlFor="section-2-questions" className="label">
+                <span className="label-text font-medium">Questions</span>
+              </label>
+              <textarea
+                id="section-2-questions"
+                name="section2Questions"
+                value={formData.section2Questions}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-36 w-full"
+                placeholder="Enter section 2 questions"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="card border border-base-300 bg-base-100 shadow-sm">
+          <div className="card-body gap-6 p-6 md:p-8">
+            <h2 className="card-title text-xl">Section 3</h2>
+
+            <div className="form-control">
+              <label htmlFor="section-3-passage" className="label">
+                <span className="label-text font-medium">Passage</span>
+              </label>
+              <textarea
+                id="section-3-passage"
+                name="section3Passage"
+                value={formData.section3Passage}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-44 w-full"
+                placeholder="Enter section 3 passage"
+              />
+            </div>
+
+            <div className="form-control">
+              <label htmlFor="section-3-questions" className="label">
+                <span className="label-text font-medium">Questions</span>
+              </label>
+              <textarea
+                id="section-3-questions"
+                name="section3Questions"
+                value={formData.section3Questions}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-36 w-full"
+                placeholder="Enter section 3 questions"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="card border border-base-300 bg-base-100 shadow-sm">
+          <div className="card-body gap-6 p-6 md:p-8">
+            <h2 className="card-title text-xl">Answer Sheet</h2>
+
+            <div className="form-control">
+              <label htmlFor="reading-answers" className="label">
+                <span className="label-text font-medium">Answers</span>
+              </label>
+              <textarea
+                id="reading-answers"
+                name="answers"
+                value={formData.answers}
+                onChange={onFieldChange}
+                className="textarea textarea-bordered min-h-40 w-full"
+                placeholder="Enter answer sheet"
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="flex justify-end">
+          <button type="submit" className="btn btn-primary" disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Reading Test"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function CreatorContent({
+  selectedItem,
+  currentView,
+  readingForm,
+  isSaving,
+  onCreateNew,
+  onReadingFieldChange,
+  onReadingDifficultySelect,
+  onCancelCreate,
+  onSaveReading,
+}) {
   if (!selectedItem) {
     return (
       <section className="flex min-h-[calc(100vh-4rem)] items-center justify-center">
@@ -169,6 +395,19 @@ function CreatorContent({ selectedItem, onCreateNew }) {
     );
   }
 
+  if (selectedItem.type === "reading" && currentView === "create") {
+    return (
+      <ReadingCreateForm
+        formData={readingForm}
+        isSaving={isSaving}
+        onFieldChange={onReadingFieldChange}
+        onDifficultySelect={onReadingDifficultySelect}
+        onCancel={onCancelCreate}
+        onSave={onSaveReading}
+      />
+    );
+  }
+
   return (
     <section className="flex min-h-[calc(100vh-4rem)] flex-col">
       <header className="mb-8 flex items-center justify-between gap-4">
@@ -176,10 +415,12 @@ function CreatorContent({ selectedItem, onCreateNew }) {
           {selectedItem.pageTitle}
         </h1>
 
-        <button type="button" className="btn btn-primary gap-2" onClick={onCreateNew}>
-          <PlusIcon className="h-5 w-5" />
-          <span>Create New</span>
-        </button>
+        {selectedItem.type === "reading" ? (
+          <button type="button" className="btn btn-primary gap-2" onClick={onCreateNew}>
+            <PlusIcon className="h-5 w-5" />
+            <span>Create New</span>
+          </button>
+        ) : null}
       </header>
 
       <div className="flex flex-1 items-center justify-center">
@@ -194,24 +435,90 @@ function CreatorContent({ selectedItem, onCreateNew }) {
 }
 
 export default function CreatorPage() {
-  const router = useRouter();
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(true);
   const [isPracticeOpen, setIsPracticeOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState(mockTestItems[0]);
+  const [currentView, setCurrentView] = useState("list");
+  const [isSaving, setIsSaving] = useState(false);
+  const [readingForm, setReadingForm] = useState(initialReadingForm);
 
   function handleSelectItem(item) {
     setSelectedItem(item);
+    setCurrentView("list");
   }
 
   function handleCreateNew() {
-    if (!selectedItem) {
+    if (selectedItem?.type !== "reading") {
       return;
     }
 
-    window.alert("CLICK WORKS");
-    router.push("/creator/create");
+    setCurrentView("create");
+  }
+
+  function handleReadingFieldChange(event) {
+    const { name, value } = event.target;
+
+    setReadingForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  function handleReadingDifficultySelect(difficulty) {
+    setReadingForm((current) => ({
+      ...current,
+      difficulty,
+    }));
+  }
+
+  function handleCancelCreate() {
+    setCurrentView("list");
+  }
+
+  async function handleSaveReading(event) {
+    event.preventDefault();
+    setIsSaving(true);
+
+    const payload = {
+      name: readingForm.name,
+      difficulty: readingForm.difficulty,
+      type: "reading",
+      sections: [
+        {
+          section: 1,
+          passage: readingForm.section1Passage,
+          questions: readingForm.section1Questions,
+        },
+        {
+          section: 2,
+          passage: readingForm.section2Passage,
+          questions: readingForm.section2Questions,
+        },
+        {
+          section: 3,
+          passage: readingForm.section3Passage,
+          questions: readingForm.section3Questions,
+        },
+      ],
+      answers: readingForm.answers,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await addDoc(collection(db, "mockTests"), payload);
+      console.log("[Creator] Saved reading test:", {
+        ...payload,
+        createdAt: new Date().toISOString(),
+      });
+      setReadingForm(initialReadingForm);
+      setCurrentView("list");
+    } catch (error) {
+      console.error("[Creator] Failed to save reading test:", error);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   if (!isAuthorized) {
@@ -278,7 +585,17 @@ export default function CreatorPage() {
 
       <main className="flex-1 overflow-x-auto">
         <div className="min-h-screen p-6 md:p-8">
-          <CreatorContent selectedItem={selectedItem} onCreateNew={handleCreateNew} />
+          <CreatorContent
+            selectedItem={selectedItem}
+            currentView={currentView}
+            readingForm={readingForm}
+            isSaving={isSaving}
+            onCreateNew={handleCreateNew}
+            onReadingFieldChange={handleReadingFieldChange}
+            onReadingDifficultySelect={handleReadingDifficultySelect}
+            onCancelCreate={handleCancelCreate}
+            onSaveReading={handleSaveReading}
+          />
         </div>
       </main>
     </div>
