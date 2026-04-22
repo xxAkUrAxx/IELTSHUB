@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../../../../lib/firebase/config";
 import { useRequireRole } from "../../../../lib/firebase/role-guard";
 
@@ -16,11 +23,42 @@ export default function CreatorCreatePage() {
   const [testName, setTestName] = useState("");
   const [passage, setPassage] = useState("");
   const [difficulty, setDifficulty] = useState(difficultyOptions[0]);
+  const [isLoadingTest, setIsLoadingTest] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const testId = searchParams.get("id");
 
   const type = searchParams.get("type") || "";
   const category = searchParams.get("category") || "mock";
   const label = searchParams.get("label") || type || "Item";
+
+  useEffect(() => {
+    async function loadReadingTest() {
+      if (!testId) {
+        return;
+      }
+
+      setIsLoadingTest(true);
+
+      try {
+        const testSnapshot = await getDoc(doc(db, "readingTests", testId));
+
+        if (!testSnapshot.exists()) {
+          return;
+        }
+
+        const data = testSnapshot.data();
+        setTestName(data.name || "");
+        setDifficulty(data.difficulty || difficultyOptions[0]);
+        setPassage(data.sections?.[0]?.passage || "");
+      } catch (error) {
+        console.error("[Creator Create] Failed to load reading test:", error);
+      } finally {
+        setIsLoadingTest(false);
+      }
+    }
+
+    loadReadingTest();
+  }, [testId]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -36,10 +74,17 @@ export default function CreatorCreatePage() {
             questions: [],
           },
         ],
-        createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "readingTests"), payload);
+      if (testId) {
+        await updateDoc(doc(db, "readingTests", testId), payload);
+      } else {
+        await addDoc(collection(db, "readingTests"), {
+          ...payload,
+          createdAt: serverTimestamp(),
+        });
+      }
+
       console.log("[Creator Create] Saved item:", {
         ...payload,
         createdAt: new Date().toISOString(),
@@ -57,6 +102,10 @@ export default function CreatorCreatePage() {
   }
 
   if (!isAuthorized) {
+    return null;
+  }
+
+  if (isLoadingTest) {
     return null;
   }
 

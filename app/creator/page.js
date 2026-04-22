@@ -17,7 +17,7 @@ import {
   PlusIcon,
 } from "@heroicons/react/24/outline";
 import { collection, getDocs } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
@@ -74,6 +74,13 @@ const practiceActivityItems = [
     category: "practice",
   },
 ];
+
+const creatorRouteByType = {
+  reading: "/creator/CreateMockTest/ReadingTestCreator",
+  writing: "/creator/CreateMockTest/WritingTestCreator",
+  listening: "/creator/CreateMockTest/ListeningTestCreator",
+  speaking: "/creator/CreateMockTest/SpeakingTestCreator",
+};
 
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
@@ -177,8 +184,9 @@ function SidebarSection({
 
 function CreatorContent({
   selectedItem,
-  readingTests,
+  testsByType,
   onCreateNew,
+  onEditTest,
 }) {
   if (!selectedItem) {
     return (
@@ -199,7 +207,7 @@ function CreatorContent({
           {selectedItem.pageTitle}
         </h1>
 
-        {selectedItem.type === "reading" ? (
+        {selectedItem.category === "mock" ? (
           <button type="button" className="btn btn-primary gap-2" onClick={onCreateNew}>
             <PlusIcon className="h-5 w-5" />
             <span>Create New</span>
@@ -207,16 +215,16 @@ function CreatorContent({
         ) : null}
       </header>
 
-      {selectedItem.type === "reading" ? (
+      {selectedItem.category === "mock" ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {readingTests.map((test) => (
+          {(testsByType[selectedItem.type] || []).map((test) => (
             <article
               key={test.id}
               className="card border border-base-300 bg-base-100 shadow-sm"
             >
               <div className="card-body gap-3 p-6">
                 <h2 className="text-xl font-semibold tracking-tight">
-                  {test.name || "Untitled Reading Test"}
+                  {test.name || `Untitled ${selectedItem.label} Test`}
                 </h2>
                 <p className="text-sm text-base-content/65">
                   Difficulty: {test.difficulty}
@@ -224,13 +232,24 @@ function CreatorContent({
                 <p className="text-sm text-base-content/65">
                   Created: {formatCreatedAt(test.createdAt)}
                 </p>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="btn btn-outline border-base-300"
+                    onClick={() => onEditTest(selectedItem.type, test.id)}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
             </article>
           ))}
 
-          {readingTests.length === 0 ? (
+          {(testsByType[selectedItem.type] || []).length === 0 ? (
             <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm md:col-span-2 xl:col-span-3">
-              <p className="text-base-content/65">No reading tests created yet.</p>
+              <p className="text-base-content/65">
+                No {selectedItem.label.toLowerCase()} tests created yet.
+              </p>
             </div>
           ) : null}
         </div>
@@ -249,41 +268,98 @@ function CreatorContent({
 
 export default function CreatorPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMockOpen, setIsMockOpen] = useState(true);
   const [isPracticeOpen, setIsPracticeOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState(mockTestItems[0]);
-  const [readingTests, setReadingTests] = useState([]);
+  const [testsByType, setTestsByType] = useState({
+    reading: [],
+    writing: [],
+    listening: [],
+    speaking: [],
+  });
 
   useEffect(() => {
-    async function loadReadingTests() {
+    async function loadTests() {
       try {
-        const snapshot = await getDocs(collection(db, "readingTests"));
-        const fetchedTests = snapshot.docs.map((docSnapshot) => ({
-          id: docSnapshot.id,
-          ...docSnapshot.data(),
-        }));
+        const [readingSnapshot, writingSnapshot, listeningSnapshot, speakingSnapshot] =
+          await Promise.all([
+            getDocs(collection(db, "readingTests")),
+            getDocs(collection(db, "writingTests")),
+            getDocs(collection(db, "listeningTests")),
+            getDocs(collection(db, "speakingTests")),
+          ]);
 
-        setReadingTests(fetchedTests);
+        setTestsByType({
+          reading: readingSnapshot.docs.map((docSnapshot) => ({
+            id: docSnapshot.id,
+            ...docSnapshot.data(),
+          })),
+          writing: writingSnapshot.docs.map((docSnapshot) => ({
+            id: docSnapshot.id,
+            ...docSnapshot.data(),
+          })),
+          listening: listeningSnapshot.docs.map((docSnapshot) => ({
+            id: docSnapshot.id,
+            ...docSnapshot.data(),
+          })),
+          speaking: speakingSnapshot.docs.map((docSnapshot) => ({
+            id: docSnapshot.id,
+            ...docSnapshot.data(),
+          })),
+        });
       } catch (error) {
-        console.error("[Creator] Failed to load reading tests:", error);
+        console.error("[Creator] Failed to load tests:", error);
       }
     }
 
-    loadReadingTests();
+    loadTests();
   }, []);
+
+  useEffect(() => {
+    const requestedType = searchParams.get("type");
+
+    if (!requestedType) {
+      return;
+    }
+
+    const matchingItem = mockTestItems.find((item) => item.type === requestedType);
+    if (matchingItem) {
+      setSelectedItem(matchingItem);
+    }
+  }, [searchParams]);
 
   function handleSelectItem(item) {
     setSelectedItem(item);
   }
 
   function handleCreateNew() {
-    if (selectedItem?.type !== "reading") {
+    if (selectedItem?.category !== "mock") {
       return;
     }
 
-    router.push("/creator/CreateMockTest/ReadingTestCreator?type=reading&category=mock&label=Reading%20Test");
+    router.push(
+      `${creatorRouteByType[selectedItem.type]}?type=${selectedItem.type}&category=mock&label=${encodeURIComponent(
+        `${selectedItem.label} Test`
+      )}`
+    );
+  }
+
+  function handleEditTest(type, testId) {
+    const route = creatorRouteByType[type];
+    const item = mockTestItems.find((mockTestItem) => mockTestItem.type === type);
+
+    if (!route || !item) {
+      return;
+    }
+
+    router.push(
+      `${route}?id=${testId}&type=${type}&category=mock&label=${encodeURIComponent(
+        `${item.label} Test`
+      )}`
+    );
   }
 
   if (!isAuthorized) {
@@ -352,8 +428,9 @@ export default function CreatorPage() {
         <div className="min-h-screen p-6 md:p-8">
           <CreatorContent
             selectedItem={selectedItem}
-            readingTests={readingTests}
+            testsByType={testsByType}
             onCreateNew={handleCreateNew}
+            onEditTest={handleEditTest}
           />
         </div>
       </main>
