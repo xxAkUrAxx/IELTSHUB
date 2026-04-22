@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../../lib/firebase/config";
@@ -9,14 +9,12 @@ import { useRequireRole } from "../../../../lib/firebase/role-guard";
 
 const difficultyOptions = ["Easy", "Medium", "Hard"];
 
-function getCollectionName(category) {
-  return category === "practice" ? "practiceActivities" : "mockTests";
-}
-
 export default function CreatorCreatePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const isAuthorized = useRequireRole("creator");
   const [testName, setTestName] = useState("");
+  const [passage, setPassage] = useState("");
   const [difficulty, setDifficulty] = useState(difficultyOptions[0]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -28,25 +26,34 @@ export default function CreatorCreatePage() {
     event.preventDefault();
     setIsSaving(true);
 
-    const payload = {
-      name: testName,
-      difficulty,
-      type,
-      category,
-      createdAt: serverTimestamp(),
-    };
-
     try {
-      await addDoc(collection(db, getCollectionName(category)), payload);
+      const payload = {
+        name: testName,
+        difficulty,
+        sections: [
+          {
+            passage,
+            questions: [],
+          },
+        ],
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "readingTests"), payload);
       console.log("[Creator Create] Saved item:", {
         ...payload,
         createdAt: new Date().toISOString(),
       });
+      router.push("/creator");
     } catch (error) {
       console.error("[Creator Create] Failed to save item:", error);
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function handleAddQuestion() {
+    console.log("Add Question Clicked");
   }
 
   if (!isAuthorized) {
@@ -109,6 +116,29 @@ export default function CreatorCreatePage() {
                 </div>
               </div>
 
+              <div className="form-control">
+                <label htmlFor="reading-passage" className="label">
+                  <span className="label-text font-medium">Passage</span>
+                </label>
+                <textarea
+                  id="reading-passage"
+                  value={passage}
+                  onChange={(event) => setPassage(event.target.value)}
+                  className="textarea textarea-bordered min-h-44 w-full"
+                  placeholder="Paste reading passage"
+                />
+              </div>
+
+              <div className="form-control">
+                <button
+                  type="button"
+                  onClick={handleAddQuestion}
+                  className="btn btn-outline border-base-300"
+                >
+                  Add Question
+                </button>
+              </div>
+
               <div className="rounded-2xl border border-base-300 bg-base-200/50 px-4 py-4 text-sm text-base-content/65">
                 <p>Type: {type || "Not provided"}</p>
                 <p>
@@ -120,7 +150,7 @@ export default function CreatorCreatePage() {
 
               <div className="flex justify-end">
                 <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                  {isSaving ? "Creating..." : "Create"}
+                  {isSaving ? "Saving..." : "Save Reading Test"}
                 </button>
               </div>
             </form>
