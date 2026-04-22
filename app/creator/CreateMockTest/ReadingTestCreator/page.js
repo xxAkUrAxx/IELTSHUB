@@ -722,6 +722,14 @@ export default function CreatorCreatePage() {
     }
   }
 
+  function handleTestMode() {
+    if (!testId) {
+      return;
+    }
+
+    window.open(`/student/mock-exams/${testId}?id=${testId}`, "_blank", "noopener,noreferrer");
+  }
+
   function toggleQuestion(sectionIndex, questionIndex) {
     const key = `${sectionIndex}-${questionIndex}`;
     setExpandedQuestions((current) => ({
@@ -1047,7 +1055,15 @@ export default function CreatorCreatePage() {
                 <p>Date will be generated automatically when you create this item.</p>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="btn btn-outline border-base-300"
+                  onClick={handleTestMode}
+                  disabled={!testId}
+                >
+                  Test Mode
+                </button>
                 <button type="submit" className="btn btn-primary" disabled={isSaving}>
                   {isSaving ? "Saving..." : "Save Reading Test"}
                 </button>
