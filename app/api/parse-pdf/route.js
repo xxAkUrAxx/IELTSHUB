@@ -59,59 +59,123 @@ export async function POST(request) {
             content: [
               {
                 type: "input_text",
-                text: `You are an IELTS parser.
-Return ONLY valid JSON.
-Do not include explanations.
-Do not include text outside JSON.
-Ensure the JSON is properly formatted and parseable.
+                text: `You are an IELTS Reading test parser.
 
-Parse this IELTS reading test PDF into structured JSON.
+You must identify IELTS question patterns using examples.
 
-Your job is to extract structured data from IELTS Reading test PDFs.
+---
 
-Rules:
-- Detect sections (Section 1, 2, 3)
-- Extract full passage text per section
-- Extract ALL questions
-- Identify question type correctly:
-  - TFNG (True/False/Not Given)
-  - YESNO (Yes/No/Not Given)
-  - MCQ (Multiple Choice)
-  - MATCHING
-  - FILL_BLANK
-  - SUMMARY
-  - TABLE
-- Preserve question numbering
-- Detect blanks (____ or dotted lines)
-- Extract options (A, B, C, D if present)
-- Do NOT guess answers (leave correctAnswer empty)
+EXAMPLE 1 (TABLE COMPLETION):
 
-Return ONLY valid JSON.
+INPUT:
 
-FORMAT:
+Questions 1–7
+Complete the table below.
+Choose ONE WORD ONLY from the passage.
+
+[Table with rows and blanks]
+
+OUTPUT:
+
+{
+  "type": "TABLE",
+  "questionRange": "1-7",
+  "instructions": "Complete the table below. Choose ONE WORD ONLY from the passage.",
+  "table": {
+    "headers": ["Section of website", "Comments"],
+    "rows": [
+      {
+        "cells": ["Database of tourism services", "allowed businesses to ____ information regularly"],
+        "blankIndex": 1,
+        "questionNumber": 1
+      }
+    ]
+  }
+}
+
+---
+
+RULES:
+
+1. TABLE DETECTION
+- If you see:
+  - "Complete the table"
+  - structured rows/columns
+  - numbered blanks (1,2,3...)
+
+-> MUST group as ONE TABLE question
+
+---
+
+2. DO NOT SPLIT TABLE INTO MULTIPLE QUESTIONS
+
+X WRONG:
+- multiple FILL_BLANK questions
+
+CORRECT:
+- ONE TABLE object with multiple blanks
+
+---
+
+3. INSTRUCTION DETECTION
+
+- Extract full instruction block BEFORE table
+- Store as "instructions"
+
+---
+
+4. QUESTION NUMBERS
+
+- Extract numbers (1-7)
+- Assign each blank to correct number
+
+---
+
+5. PASSAGE RULES
+
+- Keep formatting
+- Keep paragraphs
+- Keep headings
+
+---
+
+6. TFNG DETECTION
+
+If you see:
+"TRUE / FALSE / NOT GIVEN"
+
+-> create:
+
+{
+  "type": "TFNG",
+  "questionRange": "8-13",
+  "instructions": "...",
+  "questions": [...]
+}
+
+---
+
+7. OUTPUT FORMAT
 
 {
   "sections": [
     {
       "sectionNumber": 1,
-      "passage": "full passage text",
-      "questions": [
-        {
-          "number": 1,
-          "type": "FILL_BLANK",
-          "question": "timber for houses and the making of ____",
-          "options": [],
-          "correctAnswer": ""
-        }
-      ]
+      "title": "",
+      "passage": "",
+      "questions": []
     }
   ]
 }
 
+---
+
 IMPORTANT:
-- No explanations
-- No extra text
-- Only JSON output`,
+
+- Return ONLY JSON
+- No explanation
+- Do not guess answers
+- Preserve structure exactly`,
               },
               {
                 type: "input_file",
