@@ -48,15 +48,24 @@ export async function POST(request) {
     try {
       response = await client.responses.create({
         model: "gpt-4o-mini",
+        text: {
+          format: {
+            type: "json_object",
+          },
+        },
         input: [
           {
             role: "user",
             content: [
               {
                 type: "input_text",
-                text: `Parse this IELTS reading test PDF into structured JSON.
+                text: `You are an IELTS parser.
+Return ONLY valid JSON.
+Do not include explanations.
+Do not include text outside JSON.
+Ensure the JSON is properly formatted and parseable.
 
-You are an IELTS exam parser.
+Parse this IELTS reading test PDF into structured JSON.
 
 Your job is to extract structured data from IELTS Reading test PDFs.
 
@@ -121,12 +130,13 @@ IMPORTANT:
     }
 
     console.log("RAW OPENAI RESPONSE:", response);
+    console.log("AI OUTPUT:", response.output_text);
 
-    const outputText = parseJsonFromText(response.output_text || "{}");
+    const outputText = response.output_text || "{}";
 
     let parsedResult;
     try {
-      parsedResult = JSON.parse(outputText);
+      parsedResult = JSON.parse(parseJsonFromText(outputText));
     } catch (err) {
       console.error("JSON PARSE ERROR:", outputText);
       return NextResponse.json(
