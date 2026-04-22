@@ -39,8 +39,10 @@ export async function POST(request) {
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const base64File = Buffer.from(arrayBuffer).toString("base64");
+    const uploadedFile = await client.files.create({
+      file,
+      purpose: "assistants",
+    });
 
     let response;
     try {
@@ -51,13 +53,10 @@ export async function POST(request) {
             role: "user",
             content: [
               {
-                type: "input_file",
-                filename: file.name,
-                file_data: base64File,
-              },
-              {
                 type: "input_text",
-                text: `You are an IELTS exam parser.
+                text: `Parse this IELTS reading test PDF into structured JSON.
+
+You are an IELTS exam parser.
 
 Your job is to extract structured data from IELTS Reading test PDFs.
 
@@ -103,9 +102,11 @@ FORMAT:
 IMPORTANT:
 - No explanations
 - No extra text
-- Only JSON output
-
-Parse this IELTS reading test PDF.`,
+- Only JSON output`,
+              },
+              {
+                type: "input_file",
+                file_id: uploadedFile.id,
               },
             ],
           },
