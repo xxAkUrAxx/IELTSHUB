@@ -57,15 +57,41 @@ export async function POST(request) {
               },
               {
                 type: "input_text",
-                text: `Read this IELTS reading test PDF and convert it into JSON:
+                text: `You are an IELTS exam parser.
+
+Your job is to extract structured data from IELTS Reading test PDFs.
+
+Rules:
+- Detect sections (Section 1, 2, 3)
+- Extract full passage text per section
+- Extract ALL questions
+- Identify question type correctly:
+  - TFNG (True/False/Not Given)
+  - YESNO (Yes/No/Not Given)
+  - MCQ (Multiple Choice)
+  - MATCHING
+  - FILL_BLANK
+  - SUMMARY
+  - TABLE
+- Preserve question numbering
+- Detect blanks (____ or dotted lines)
+- Extract options (A, B, C, D if present)
+- Do NOT guess answers (leave correctAnswer empty)
+
+Return ONLY valid JSON.
+
+FORMAT:
+
 {
   "sections": [
     {
-      "passage": "",
+      "sectionNumber": 1,
+      "passage": "full passage text",
       "questions": [
         {
-          "type": "TFNG | MCQ | FILL_BLANK | MATCHING",
-          "question": "",
+          "number": 1,
+          "type": "FILL_BLANK",
+          "question": "timber for houses and the making of ____",
           "options": [],
           "correctAnswer": ""
         }
@@ -74,7 +100,12 @@ export async function POST(request) {
   ]
 }
 
-Return valid JSON only.`,
+IMPORTANT:
+- No explanations
+- No extra text
+- Only JSON output
+
+Parse this IELTS reading test PDF.`,
               },
             ],
           },

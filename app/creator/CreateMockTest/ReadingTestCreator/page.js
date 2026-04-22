@@ -44,6 +44,7 @@ export default function CreatorCreatePage() {
   const [testName, setTestName] = useState("");
   const [passage, setPassage] = useState("");
   const [difficulty, setDifficulty] = useState(difficultyOptions[0]);
+  const [sections, setSections] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [pdfFile, setPdfFile] = useState(null);
   const [isLoadingTest, setIsLoadingTest] = useState(false);
@@ -74,23 +75,20 @@ export default function CreatorCreatePage() {
         setTestName(data.name || "");
         setDifficulty(data.difficulty || difficultyOptions[0]);
 
-        const sections = Array.isArray(data.sections) ? data.sections : [];
-        const mergedPassage = sections
-          .map((section) => section?.passage || "")
-          .filter(Boolean)
-          .join("\n\n");
-        const loadedQuestions = sections.flatMap((section) =>
-          Array.isArray(section?.questions) ? section.questions : []
-        );
+        const loadedSections = Array.isArray(data.sections) ? data.sections : [];
+        const firstSection = loadedSections[0] || { passage: "", questions: [] };
 
-        setPassage(mergedPassage);
+        setSections(loadedSections);
+        setPassage(firstSection.passage || "");
         setQuestions(
-          loadedQuestions.map((question) => ({
+          (Array.isArray(firstSection.questions) ? firstSection.questions : []).map(
+            (question) => ({
             type: question.type || "TFNG",
             question: question.question || "",
             options: Array.isArray(question.options) ? question.options : [],
             correctAnswer: question.correctAnswer || "",
-          }))
+          })
+          )
         );
       } catch (error) {
         console.error("[Creator Create] Failed to load reading test:", error);
@@ -201,22 +199,19 @@ export default function CreatorCreatePage() {
       }
 
       const sections = Array.isArray(result.sections) ? result.sections : [];
-      const mergedPassage = sections
-        .map((section) => section?.passage || "")
-        .filter(Boolean)
-        .join("\n\n");
-      const parsedQuestions = sections.flatMap((section) =>
-        Array.isArray(section?.questions) ? section.questions : []
-      );
+      const firstSection = sections[0] || { passage: "", questions: [] };
 
-      setPassage(mergedPassage);
+      setSections(sections);
+      setPassage(firstSection.passage || "");
       setQuestions(
-        parsedQuestions.map((question) => ({
+        (Array.isArray(firstSection.questions) ? firstSection.questions : []).map(
+          (question) => ({
           type: question.type || "TFNG",
           question: question.question || "",
           options: Array.isArray(question.options) ? question.options : [],
           correctAnswer: question.correctAnswer || "",
-        }))
+        })
+        )
       );
     } catch (error) {
       console.error("PARSE PDF ERROR:", error);
