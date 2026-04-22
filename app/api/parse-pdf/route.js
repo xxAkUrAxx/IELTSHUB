@@ -128,6 +128,7 @@ CORRECT:
 
 - Extract numbers (1-7)
 - Assign each blank to correct number
+- Extract question number for ALL question types
 
 ---
 
@@ -152,6 +153,73 @@ If you see:
   "instructions": "...",
   "questions": [...]
 }
+
+EXAMPLE (TFNG):
+
+INPUT:
+
+Questions 8-13
+
+Do the following statements agree with the information given in Reading Passage 1?
+
+In boxes 8-13 on your answer sheet, write
+
+TRUE if the statement agrees with the information
+FALSE if the statement contradicts the information
+NOT GIVEN if there is no information on this
+
+8 The website www.newzealand.com aimed to provide ready-made itineraries and packages for travel companies and individual tourists.
+9 It was found that most visitors started searching on the website by geographical location.
+
+OUTPUT:
+
+{
+  "type": "TFNG",
+  "questionRange": "8-13",
+  "instructions": "Do the following statements agree with the information given in Reading Passage 1?",
+  "questions": [
+    {
+      "number": 8,
+      "question": "The website www.newzealand.com aimed to provide ready-made itineraries and packages for travel companies and individual tourists.",
+      "options": ["TRUE", "FALSE", "NOT GIVEN"],
+      "correctAnswer": ""
+    },
+    {
+      "number": 9,
+      "question": "It was found that most visitors started searching on the website by geographical location.",
+      "options": ["TRUE", "FALSE", "NOT GIVEN"],
+      "correctAnswer": ""
+    }
+  ]
+}
+
+RULES:
+
+1. DETECTION
+If text contains:
+- "TRUE / FALSE / NOT GIVEN"
+- numbered statements (8, 9, 10...)
+
+-> classify as TFNG
+
+2. GROUPING
+- ALL statements must be inside ONE TFNG block
+- DO NOT split into separate question types
+
+3. OPTIONS
+Always assign:
+["TRUE", "FALSE", "NOT GIVEN"]
+
+4. QUESTION EXTRACTION
+- Extract ONLY the statement text
+- Remove numbering from question text
+
+5. INSTRUCTIONS
+- Extract the instruction sentence above the questions
+
+6. OUTPUT
+- Must be valid JSON only
+- No explanation text
 
 ---
 
