@@ -15,6 +15,27 @@ import { db } from "../../../../lib/firebase/config";
 import { useRequireRole } from "../../../../lib/firebase/role-guard";
 
 const difficultyOptions = ["Easy", "Medium", "Hard"];
+const questionTypeOptions = ["TFNG", "MCQ", "FILL_BLANK", "MATCHING"];
+
+function createQuestion() {
+  return {
+    type: "TFNG",
+    question: "",
+    options: [],
+    correctAnswer: "",
+  };
+}
+
+function formatOptionsForInput(options) {
+  return Array.isArray(options) ? options.join("\n") : "";
+}
+
+function parseOptionsInput(value) {
+  return value
+    .split("\n")
+    .map((option) => option.trim())
+    .filter(Boolean);
+}
 
 export default function CreatorCreatePage() {
   const router = useRouter();
@@ -23,7 +44,10 @@ export default function CreatorCreatePage() {
   const [testName, setTestName] = useState("");
   const [passage, setPassage] = useState("");
   const [difficulty, setDifficulty] = useState(difficultyOptions[0]);
+  const [questions, setQuestions] = useState([]);
+  const [pdfFile, setPdfFile] = useState(null);
   const [isLoadingTest, setIsLoadingTest] = useState(false);
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const testId = searchParams.get("id");
 
@@ -49,7 +73,25 @@ export default function CreatorCreatePage() {
         const data = testSnapshot.data();
         setTestName(data.name || "");
         setDifficulty(data.difficulty || difficultyOptions[0]);
-        setPassage(data.sections?.[0]?.passage || "");
+
+        const sections = Array.isArray(data.sections) ? data.sections : [];
+        const mergedPassage = sections
+          .map((section) => section?.passage || "")
+          .filter(Boolean)
+          .join("\n\n");
+        const loadedQuestions = sections.flatMap((section) =>
+          Array.isArray(section?.questions) ? section.questions : []
+        );
+
+        setPassage(mergedPassage);
+        setQuestions(
+          loadedQuestions.map((question) => ({
+            type: question.type || "TFNG",
+            question: question.question || "",
+            options: Array.isArray(question.options) ? question.options : [],
+            correctAnswer: question.correctAnswer || "",
+          }))
+        );
       } catch (error) {
         console.error("[Creator Create] Failed to load reading test:", error);
       } finally {
@@ -71,7 +113,7 @@ export default function CreatorCreatePage() {
         sections: [
           {
             passage,
-            questions: [],
+            questions,
           },
         ],
       };
@@ -89,7 +131,7 @@ export default function CreatorCreatePage() {
         ...payload,
         createdAt: new Date().toISOString(),
       });
-      router.push("/creator");
+      router.push("/creator?type=reading");
     } catch (error) {
       console.error("[Creator Create] Failed to save item:", error);
     } finally {
@@ -98,14 +140,93 @@ export default function CreatorCreatePage() {
   }
 
   function handleAddQuestion() {
-    console.log("Add Question Clicked");
+    setQuestions((current) => [...current, createQuestion()]);
   }
 
-  if (!isAuthorized) {
-    return null;
+  function handleQuestionChange(index, field, value) {
+    setQuestions((current) =>
+      current.map((questionItem, questionIndex) =>
+        questionIndex === index
+          ? {
+              ...questionItem,
+              [field]: value,
+            }
+          : questionItem
+      )
+    );
   }
 
-  if (isLoadingTest) {
+  function handleRemoveQuestion(index) {
+    setQuestions((current) =>
+      current.filter((_, questionIndex) => questionIndex !== index)
+    );
+  }
+
+  function handlePdfFileChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setPdfFile(null);
+      return;
+    }
+
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setPdfFile(null);
+      return;
+    }
+
+    setPdfFile(file);
+  }
+
+  async function handleParsePdf() {
+    if (!pdfFile) {
+      return;
+    }
+
+    setIsParsingPdf(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", pdfFile);
+
+      const response = await fetch("/api/parse-pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to parse PDF.");
+      }
+
+      const sections = Array.isArray(result.sections) ? result.sections : [];
+      const mergedPassage = sections
+        .map((section) => section?.passage || "")
+        .filter(Boolean)
+        .join("\n\n");
+      const parsedQuestions = sections.flatMap((section) =>
+        Array.isArray(section?.questions) ? section.questions : []
+      );
+
+      setPassage(mergedPassage);
+      setQuestions(
+        parsedQuestions.map((question) => ({
+          type: question.type || "TFNG",
+          question: question.question || "",
+          options: Array.isArray(question.options) ? question.options : [],
+          correctAnswer: question.correctAnswer || "",
+        }))
+      );
+    } catch (error) {
+      console.error("PARSE PDF ERROR:", error);
+      alert("Check console for error");
+    } finally {
+      setIsParsingPdf(false);
+    }
+  }
+
+  if (!isAuthorized || isLoadingTest) {
     return null;
   }
 
@@ -166,6 +287,30 @@ export default function CreatorCreatePage() {
               </div>
 
               <div className="form-control">
+                <label htmlFor="reading-pdf" className="label">
+                  <span className="label-text font-medium">PDF File</span>
+                </label>
+                <input
+                  id="reading-pdf"
+                  type="file"
+                  accept=".pdf"
+                  onChange={handlePdfFileChange}
+                  className="file-input file-input-bordered w-full"
+                />
+              </div>
+
+              <div className="form-control">
+                <button
+                  type="button"
+                  onClick={handleParsePdf}
+                  className="btn btn-outline border-base-300"
+                  disabled={!pdfFile || isParsingPdf}
+                >
+                  {isParsingPdf ? "Parsing PDF..." : "Parse PDF with AI"}
+                </button>
+              </div>
+
+              <div className="form-control">
                 <label htmlFor="reading-passage" className="label">
                   <span className="label-text font-medium">Passage</span>
                 </label>
@@ -186,6 +331,108 @@ export default function CreatorCreatePage() {
                 >
                   Add Question
                 </button>
+              </div>
+
+              <div className="space-y-4">
+                {questions.map((questionItem, index) => (
+                  <div
+                    key={`question-${index}`}
+                    className="rounded-2xl border border-base-300 bg-base-200/50 p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <p className="text-sm font-medium text-base-content/70">
+                        Question {index + 1}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQuestion(index)}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div className="form-control">
+                        <label htmlFor={`question-type-${index}`} className="label">
+                          <span className="label-text font-medium">Type</span>
+                        </label>
+                        <select
+                          id={`question-type-${index}`}
+                          value={questionItem.type}
+                          onChange={(event) =>
+                            handleQuestionChange(index, "type", event.target.value)
+                          }
+                          className="select select-bordered w-full"
+                        >
+                          {questionTypeOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-control">
+                        <label htmlFor={`question-text-${index}`} className="label">
+                          <span className="label-text font-medium">Question</span>
+                        </label>
+                        <textarea
+                          id={`question-text-${index}`}
+                          value={questionItem.question}
+                          onChange={(event) =>
+                            handleQuestionChange(index, "question", event.target.value)
+                          }
+                          className="textarea textarea-bordered min-h-28 w-full"
+                          placeholder="Enter question"
+                        />
+                      </div>
+
+                      <div className="form-control">
+                        <label htmlFor={`question-options-${index}`} className="label">
+                          <span className="label-text font-medium">
+                            Options
+                          </span>
+                        </label>
+                        <textarea
+                          id={`question-options-${index}`}
+                          value={formatOptionsForInput(questionItem.options)}
+                          onChange={(event) =>
+                            handleQuestionChange(
+                              index,
+                              "options",
+                              parseOptionsInput(event.target.value)
+                            )
+                          }
+                          className="textarea textarea-bordered min-h-28 w-full"
+                          placeholder="One option per line"
+                        />
+                      </div>
+
+                      <div className="form-control">
+                        <label htmlFor={`question-answer-${index}`} className="label">
+                          <span className="label-text font-medium">
+                            Correct Answer
+                          </span>
+                        </label>
+                        <input
+                          id={`question-answer-${index}`}
+                          type="text"
+                          value={questionItem.correctAnswer}
+                          onChange={(event) =>
+                            handleQuestionChange(
+                              index,
+                              "correctAnswer",
+                              event.target.value
+                            )
+                          }
+                          className="input input-bordered w-full"
+                          placeholder="Enter correct answer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="rounded-2xl border border-base-300 bg-base-200/50 px-4 py-4 text-sm text-base-content/65">
