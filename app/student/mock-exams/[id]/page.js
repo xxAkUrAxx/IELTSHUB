@@ -255,73 +255,93 @@ export default function StudentMockExamPreviewPage() {
   const firstSection = test?.sections?.[0];
 
   return (
-    <main className="min-h-screen bg-base-200 px-6 py-10 text-base-content">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
+    <main className="h-screen overflow-hidden bg-base-200 text-base-content">
+      <div className="flex h-full w-full flex-col">
+        <header className="border-b border-base-300 bg-base-100 px-6 py-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
             Student Preview
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">{test?.name}</h1>
         </header>
 
-        {test?.sections?.map((section, sectionIndex) => (
-          <section
-            key={`preview-section-${sectionIndex}`}
-            className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
-          >
-            <article className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
-                Section {section.sectionNumber || sectionIndex + 1}
-              </p>
-              {section.title ? (
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight">{section.title}</h2>
-              ) : null}
-              <div className="mt-6 whitespace-pre-wrap text-base leading-8 text-base-content">
-                {section.passage}
+        <div className="flex-1 overflow-hidden">
+          {test?.sections?.length ? (
+            <div className="flex h-full w-full flex-col lg:flex-row">
+              <div className="h-full overflow-y-auto border-b border-base-300 bg-base-100 px-6 py-6 lg:w-3/5 lg:border-b-0 lg:border-r">
+                <div className="mx-auto max-w-4xl space-y-8">
+                  {test.sections.map((section, sectionIndex) => (
+                    <article key={`passage-section-${sectionIndex}`} className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+                        Section {section.sectionNumber || sectionIndex + 1}
+                      </p>
+                      {section.title ? (
+                        <h2 className="mt-2 text-2xl font-semibold tracking-tight">{section.title}</h2>
+                      ) : null}
+                      <div className="mt-6 whitespace-pre-wrap text-base leading-8 text-base-content">
+                        {section.passage}
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
-            </article>
 
-            <aside className="space-y-4">
-              {section.questions.map((question, questionIndex) => {
-                if (question.type === "TABLE") {
-                  return (
-                    <div key={`question-${sectionIndex}-${questionIndex}`}>
-                      {renderTableQuestion(question, answers, updateAnswer)}
-                    </div>
-                  );
-                }
+              <div className="h-full overflow-y-auto bg-base-200 px-6 py-6 lg:w-2/5">
+                <div className="space-y-8">
+                  {test.sections.map((section, sectionIndex) => (
+                    <section key={`question-section-${sectionIndex}`} className="space-y-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+                          Section {section.sectionNumber || sectionIndex + 1}
+                        </p>
+                        {section.title ? (
+                          <h2 className="mt-2 text-xl font-semibold tracking-tight">{section.title}</h2>
+                        ) : null}
+                      </div>
 
-                if (question.type === "TFNG" && Array.isArray(question.questions)) {
-                  return (
-                    <div key={`question-${sectionIndex}-${questionIndex}`}>
-                      {renderTfngGroup(question, answers, updateAnswer)}
-                    </div>
-                  );
-                }
+                      {section.questions.map((question, questionIndex) => {
+                        if (question.type === "TABLE") {
+                          return (
+                            <div key={`question-${sectionIndex}-${questionIndex}`}>
+                              {renderTableQuestion(question, answers, updateAnswer)}
+                            </div>
+                          );
+                        }
 
-                return (
-                  <div key={`question-${sectionIndex}-${questionIndex}`}>
-                    {renderFillBlankQuestion(
-                      question,
-                      answers[question.number || `${sectionIndex}-${questionIndex}`] || "",
-                      (value) =>
-                        updateAnswer(
-                          question.number || `${sectionIndex}-${questionIndex}`,
-                          value
-                        )
-                    )}
-                  </div>
-                );
-              })}
-            </aside>
-          </section>
-        ))}
+                        if (question.type === "TFNG" && Array.isArray(question.questions)) {
+                          return (
+                            <div key={`question-${sectionIndex}-${questionIndex}`}>
+                              {renderTfngGroup(question, answers, updateAnswer)}
+                            </div>
+                          );
+                        }
 
-        {!firstSection && !test?.sections?.length ? (
-          <div className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
-            <p className="text-base-content/70">This test has no sections yet.</p>
-          </div>
-        ) : null}
+                        return (
+                          <div key={`question-${sectionIndex}-${questionIndex}`}>
+                            {renderFillBlankQuestion(
+                              question,
+                              answers[question.number || `${sectionIndex}-${questionIndex}`] || "",
+                              (value) =>
+                                updateAnswer(
+                                  question.number || `${sectionIndex}-${questionIndex}`,
+                                  value
+                                )
+                            )}
+                          </div>
+                        );
+                      })}
+                    </section>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6">
+              <div className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
+                <p className="text-base-content/70">This test has no sections yet.</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </main>
   );
