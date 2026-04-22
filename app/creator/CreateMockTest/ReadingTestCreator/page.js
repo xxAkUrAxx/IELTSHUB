@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../../lib/firebase/config";
-import { useRequireRole } from "../../../lib/firebase/role-guard";
+import { db } from "../../../../lib/firebase/config";
+import { useRequireRole } from "../../../../lib/firebase/role-guard";
 
 const difficultyOptions = ["Easy", "Medium", "Hard"];
 
