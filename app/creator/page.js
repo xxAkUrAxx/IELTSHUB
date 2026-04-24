@@ -15,10 +15,15 @@ import {
   MusicalNoteIcon,
   PencilSquareIcon,
   PlusIcon,
+  TrashIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useRequireRole } from "../../lib/firebase/role-guard";
-import { listWritingTests, saveWritingTest } from "../../lib/tests/writing-tests";
+import {
+  deleteWritingTest,
+  listWritingTests,
+  saveWritingTest,
+} from "../../lib/tests/writing-tests";
 
 const mockExamItems = [
   {
@@ -105,11 +110,13 @@ function formatCreatedAt(createdAt) {
 }
 
 function getDifficultyTextColor(difficulty) {
-  if (difficulty === "easy") {
+  const normalizedDifficulty = String(difficulty).toLowerCase();
+
+  if (normalizedDifficulty === "easy") {
     return "#4CCD99";
   }
 
-  if (difficulty === "hard") {
+  if (normalizedDifficulty === "hard") {
     return "#AE2448";
   }
 
@@ -224,7 +231,7 @@ function CreatorActionButton({ onClick, children }) {
   );
 }
 
-function WritingTestCard({ test, onEdit }) {
+function WritingTestCard({ test, onDelete, onEdit }) {
   return (
     <article className="card border border-base-300 bg-base-100 shadow-sm">
       <div className="card-body gap-4 p-6">
@@ -233,8 +240,22 @@ function WritingTestCard({ test, onEdit }) {
             <h2 className="text-xl font-semibold tracking-tight">
               {test.name}
             </h2>
-            <div className="badge badge-outline">{test.difficulty}</div>
+            <div
+              className="badge badge-outline"
+              style={{ color: getDifficultyTextColor(test.difficulty) }}
+            >
+              {test.difficulty}
+            </div>
           </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10 hover:text-error"
+            aria-label={`Delete ${test.name}`}
+            onClick={() => onDelete(test)}
+          >
+            <TrashIcon className="h-5 w-5" />
+          </button>
         </div>
 
         <p className="text-sm text-base-content/65">
@@ -481,6 +502,7 @@ export default function CreatorPage() {
   const [writingTests, setWritingTests] = useState([]);
   const [isWritingTestsLoading, setIsWritingTestsLoading] = useState(true);
   const [isSavingWritingTest, setIsSavingWritingTest] = useState(false);
+  const [isDeletingWritingTest, setIsDeletingWritingTest] = useState(false);
   const [writingTestUploadProgress, setWritingTestUploadProgress] = useState(0);
   const [writingTestError, setWritingTestError] = useState("");
   const [writingTestNotice, setWritingTestNotice] = useState("");
@@ -651,7 +673,7 @@ export default function CreatorPage() {
         (test) => test.id === editingWritingTestId
       );
       const { notice, savedTest } = await saveWritingTest({
-        editingTestId,
+        editingTestId: editingWritingTestId,
         formValues: writingTestForm,
         difficultyLabel,
         selectedImageFile: selectedPart1ImageFile,
@@ -674,6 +696,38 @@ export default function CreatorPage() {
       );
     } finally {
       setIsSavingWritingTest(false);
+    }
+  }
+
+  async function handleDeleteWritingTest(test) {
+    const shouldDelete = window.confirm(
+      "Are you sure you want to delete this test?"
+    );
+
+    if (!shouldDelete || isDeletingWritingTest) {
+      return;
+    }
+
+    try {
+      setIsDeletingWritingTest(true);
+      setWritingTestError("");
+      setWritingTestNotice("");
+
+      await deleteWritingTest(test);
+      setWritingTests((currentTests) =>
+        currentTests.filter((currentTest) => currentTest.id !== test.id)
+      );
+
+      if (editingWritingTestId === test.id) {
+        handleCloseWritingTestComposer();
+      }
+
+      setWritingTestNotice("Test deleted.");
+    } catch (error) {
+      console.error("[Creator] Failed to delete writing test:", error);
+      setWritingTestError(error?.message || "Failed to delete writing test.");
+    } finally {
+      setIsDeletingWritingTest(false);
     }
   }
 
@@ -774,6 +828,7 @@ export default function CreatorPage() {
                           <WritingTestCard
                             key={test.id}
                             test={test}
+                            onDelete={handleDeleteWritingTest}
                             onEdit={handleEditWritingTest}
                           />
                         ))}
