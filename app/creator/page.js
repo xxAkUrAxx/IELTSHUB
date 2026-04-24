@@ -64,7 +64,22 @@ const practiceActivityItems = [
   },
 ];
 
-const allSidebarItems = [...mockExamItems, ...practiceActivityItems];
+const sidebarSections = [
+  {
+    key: "mock-exams",
+    label: "Mock Exams",
+    icon: ComputerDesktopIcon,
+    items: mockExamItems,
+  },
+  {
+    key: "practice-activity",
+    label: "Practice Activity",
+    icon: ClipboardDocumentCheckIcon,
+    items: practiceActivityItems,
+  },
+];
+
+const allSidebarItems = sidebarSections.flatMap((section) => section.items);
 
 function SidebarItem({
   item,
@@ -149,10 +164,29 @@ function SidebarSection({
   );
 }
 
+function CreatorActionButton({ onClick, children }) {
+  return (
+    <button
+      type="button"
+      className="btn gap-2 border-0 font-bold text-white"
+      style={{ backgroundColor: "#007F73", color: "#ffffff" }}
+      onClick={onClick}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.backgroundColor = "#00695f";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.backgroundColor = "#007F73";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [openSection, setOpenSection] = useState("mock-exams");
+  const [openSectionKey, setOpenSectionKey] = useState("mock-exams");
   const [activeItemKey, setActiveItemKey] = useState("reading-test");
   const activeItem = allSidebarItems.find((item) => item.key === activeItemKey);
 
@@ -162,6 +196,16 @@ export default function CreatorPage() {
     }
 
     console.log(`[Creator] Create new clicked for: ${activeItem.label}`);
+  }
+
+  function handleToggleSection(sectionKey) {
+    setOpenSectionKey((currentKey) =>
+      currentKey === sectionKey ? "" : sectionKey
+    );
+  }
+
+  function handleSelectItem(itemKey) {
+    setActiveItemKey(itemKey);
   }
 
   if (!isAuthorized) {
@@ -201,35 +245,19 @@ export default function CreatorPage() {
 
         <div className="flex flex-1 flex-col gap-3 px-3 py-4">
           <nav className="flex flex-col gap-1">
-            <SidebarSection
-              label="Mock Exams"
-              icon={ComputerDesktopIcon}
-              items={mockExamItems}
-              isCollapsed={isCollapsed}
-              isOpen={openSection === "mock-exams"}
-              activeItemKey={activeItemKey}
-              onToggle={() =>
-                setOpenSection((current) =>
-                  current === "mock-exams" ? "" : "mock-exams"
-                )
-              }
-              onSelect={(item) => setActiveItemKey(item.key)}
-            />
-
-            <SidebarSection
-              label="Practice Activity"
-              icon={ClipboardDocumentCheckIcon}
-              items={practiceActivityItems}
-              isCollapsed={isCollapsed}
-              isOpen={openSection === "practice-activity"}
-              activeItemKey={activeItemKey}
-              onToggle={() =>
-                setOpenSection((current) =>
-                  current === "practice-activity" ? "" : "practice-activity"
-                )
-              }
-              onSelect={(item) => setActiveItemKey(item.key)}
-            />
+            {sidebarSections.map((section) => (
+              <SidebarSection
+                key={section.key}
+                label={section.label}
+                icon={section.icon}
+                items={section.items}
+                isCollapsed={isCollapsed}
+                isOpen={openSectionKey === section.key}
+                activeItemKey={activeItemKey}
+                onToggle={() => handleToggleSection(section.key)}
+                onSelect={(item) => handleSelectItem(item.key)}
+              />
+            ))}
           </nav>
         </div>
       </aside>
@@ -242,21 +270,10 @@ export default function CreatorPage() {
                 {activeItem?.label || "Creator Dashboard"}
               </h1>
 
-              <button
-                type="button"
-                className="btn gap-2 border-0 font-bold text-white"
-                style={{ backgroundColor: "#007F73", color: "#ffffff" }}
-                onClick={handleCreateNew}
-                onMouseEnter={(event) => {
-                  event.currentTarget.style.backgroundColor = "#00695f";
-                }}
-                onMouseLeave={(event) => {
-                  event.currentTarget.style.backgroundColor = "#007F73";
-                }}
-              >
+              <CreatorActionButton onClick={handleCreateNew}>
                 <PlusIcon className="h-5 w-5" />
                 <span>Create New</span>
-              </button>
+              </CreatorActionButton>
             </header>
 
             <div className="flex flex-1 items-center justify-center">
