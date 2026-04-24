@@ -6,6 +6,7 @@ const tfngOptions = ["TRUE", "FALSE", "NOT GIVEN"];
 const DEFAULT_LEFT_WIDTH = 60;
 const MIN_LEFT_WIDTH = 40;
 const MAX_LEFT_WIDTH = 70;
+const DIVIDER_WIDTH = 10;
 
 function renderFillBlankQuestion(question, answer, onChange) {
   const hasBlank = question.question.includes("____");
@@ -134,33 +135,23 @@ export default function ReadingTestMode({ testData }) {
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const containerRef = useRef(null);
   const dragStateRef = useRef({
-    dragging: false,
+    isResizing: false,
   });
 
   useEffect(() => {
-    const html = document.documentElement;
     const body = document.body;
-    const previousHtmlHeight = html.style.height;
-    const previousHtmlOverflow = html.style.overflow;
-    const previousBodyHeight = body.style.height;
     const previousBodyOverflow = body.style.overflow;
 
-    html.style.height = "100%";
-    html.style.overflow = "hidden";
-    body.style.height = "100%";
     body.style.overflow = "hidden";
 
     return () => {
-      html.style.height = previousHtmlHeight;
-      html.style.overflow = previousHtmlOverflow;
-      body.style.height = previousBodyHeight;
       body.style.overflow = previousBodyOverflow;
     };
   }, []);
 
   useEffect(() => {
-    function stopDragging() {
-      dragStateRef.current.dragging = false;
+    function stopResizing() {
+      dragStateRef.current.isResizing = false;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     }
@@ -185,31 +176,29 @@ export default function ReadingTestMode({ testData }) {
       setLeftWidth(clampedLeftWidth);
     }
 
-    function handlePointerMove(event) {
-      if (!dragStateRef.current.dragging) {
+    function handleMouseMove(event) {
+      if (!dragStateRef.current.isResizing) {
         return;
       }
 
       updateWidth(event.clientX);
     }
 
-    function handlePointerUp() {
-      if (!dragStateRef.current.dragging) {
+    function handleMouseUp() {
+      if (!dragStateRef.current.isResizing) {
         return;
       }
 
-      stopDragging();
+      stopResizing();
     }
 
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-      stopDragging();
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      stopResizing();
     };
   }, []);
 
@@ -221,7 +210,7 @@ export default function ReadingTestMode({ testData }) {
   }
 
   function startResizing(event) {
-    dragStateRef.current.dragging = true;
+    dragStateRef.current.isResizing = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     event.preventDefault();
@@ -233,12 +222,42 @@ export default function ReadingTestMode({ testData }) {
   const rightWidth = 100 - leftWidth;
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-base-200 text-base-content">
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "row",
+        backgroundColor: "#111827",
+        color: "hsl(var(--bc, 220 13% 91%))",
+        zIndex: 1000,
+      }}
+    >
       {hasSections ? (
-        <div ref={containerRef} className="flex h-full w-full overflow-hidden">
+        <div
+          ref={containerRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "row",
+          }}
+        >
           <div
-            className="h-full overflow-y-auto border-r border-base-300 bg-base-100 p-6"
-            style={{ width: `${leftWidth}%` }}
+            style={{
+              width: `calc((100% - ${DIVIDER_WIDTH}px) * ${leftWidth / 100})`,
+              height: "100%",
+              overflowY: "auto",
+              overflowX: "hidden",
+              backgroundColor: "#1f2937",
+              borderRight: "1px solid rgba(255, 255, 255, 0.12)",
+              padding: "24px",
+              flexShrink: 0,
+            }}
           >
             <div className="space-y-8">
               <section className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
@@ -278,19 +297,27 @@ export default function ReadingTestMode({ testData }) {
             aria-valuemin={MIN_LEFT_WIDTH}
             aria-valuemax={MAX_LEFT_WIDTH}
             aria-valuenow={Math.round(leftWidth)}
-            tabIndex={0}
-            className="reading-test-divider relative h-full w-3 shrink-0 bg-base-200"
-            onPointerDown={startResizing}
-          >
-            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-base-300" />
-            <div className="pointer-events-none absolute left-1/2 top-1/2 flex h-12 w-2 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-base-100 shadow-sm">
-              <span className="h-6 w-[2px] rounded-full bg-base-300" />
-            </div>
-          </div>
+            onMouseDown={startResizing}
+            style={{
+              width: `${DIVIDER_WIDTH}px`,
+              height: "100%",
+              flexShrink: 0,
+              cursor: "col-resize",
+              backgroundColor: "#f59e0b",
+              boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.15)",
+            }}
+          />
 
           <div
-            className="h-full overflow-y-auto bg-base-200 p-6"
-            style={{ width: `${rightWidth}%` }}
+            style={{
+              width: `calc((100% - ${DIVIDER_WIDTH}px) * ${rightWidth / 100})`,
+              height: "100%",
+              overflowY: "auto",
+              overflowX: "hidden",
+              backgroundColor: "#374151",
+              padding: "24px",
+              flexShrink: 0,
+            }}
           >
             <div className="space-y-8">
               {sections.map((section, sectionIndex) => (
@@ -353,13 +380,6 @@ export default function ReadingTestMode({ testData }) {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .reading-test-divider {
-          cursor: col-resize;
-          touch-action: none;
-        }
-      `}</style>
-    </main>
+    </div>
   );
 }
