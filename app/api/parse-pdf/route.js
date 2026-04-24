@@ -1,4 +1,4 @@
-import pdf from "pdf-parse";
+import { default as pdfParse } from "pdf-parse";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
@@ -317,7 +317,7 @@ export async function POST(request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfResult = await pdf(buffer);
+    const pdfResult = await pdfParse(buffer);
     const extractedText = normalizeLineBreaks(pdfResult.text || "");
     const sections = splitIntoSections(extractedText);
 
