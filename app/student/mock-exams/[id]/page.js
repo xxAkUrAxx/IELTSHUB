@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "../../../../lib/firebase/config";
+import { auth, db } from "../../../../lib/firebase/config";
 import ReadingTestMode from "../../../../components/testModes/ReadingTestMode";
 
 function normalizeTable(table) {
@@ -64,9 +65,17 @@ export default function StudentMockExamPreviewPage() {
   );
 
   useEffect(() => {
-    async function loadTest() {
-      if (!testId) {
-        setErrorMessage("No test id provided.");
+    if (!testId) {
+      setErrorMessage("No test id provided.");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
         setIsLoading(false);
         return;
       }
@@ -76,6 +85,7 @@ export default function StudentMockExamPreviewPage() {
 
         if (!snapshot.exists()) {
           setErrorMessage("Reading test not found.");
+          setTest(null);
           setIsLoading(false);
           return;
         }
@@ -96,12 +106,13 @@ export default function StudentMockExamPreviewPage() {
       } catch (error) {
         console.error("[Student Preview] Failed to load reading test:", error);
         setErrorMessage("Failed to load reading test.");
+        setTest(null);
       } finally {
         setIsLoading(false);
       }
-    }
+    });
 
-    loadTest();
+    return () => unsubscribe();
   }, [testId]);
 
   if (isLoading) {
