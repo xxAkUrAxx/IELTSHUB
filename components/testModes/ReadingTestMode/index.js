@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const tfngOptions = ["TRUE", "FALSE", "NOT GIVEN"];
+const DEFAULT_LEFT_WIDTH = 60;
+const MIN_LEFT_WIDTH = 40;
+const MAX_LEFT_WIDTH = 70;
 
 function renderFillBlankQuestion(question, answer, onChange) {
   const hasBlank = question.question.includes("____");
@@ -128,6 +131,11 @@ function renderTableQuestion(question, answers, onChange) {
 
 export default function ReadingTestMode({ testData }) {
   const [answers, setAnswers] = useState({});
+  const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
+  const containerRef = useRef(null);
+  const dragStateRef = useRef({
+    dragging: false,
+  });
 
   useEffect(() => {
     const html = document.documentElement;
@@ -150,6 +158,61 @@ export default function ReadingTestMode({ testData }) {
     };
   }, []);
 
+  useEffect(() => {
+    function stopDragging() {
+      dragStateRef.current.dragging = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    function updateWidth(clientX) {
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+
+      const { left, width } = container.getBoundingClientRect();
+      if (!width) {
+        return;
+      }
+
+      const nextLeftWidth = ((clientX - left) / width) * 100;
+      const clampedLeftWidth = Math.min(
+        MAX_LEFT_WIDTH,
+        Math.max(MIN_LEFT_WIDTH, nextLeftWidth)
+      );
+
+      setLeftWidth(clampedLeftWidth);
+    }
+
+    function handlePointerMove(event) {
+      if (!dragStateRef.current.dragging) {
+        return;
+      }
+
+      updateWidth(event.clientX);
+    }
+
+    function handlePointerUp() {
+      if (!dragStateRef.current.dragging) {
+        return;
+      }
+
+      stopDragging();
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      stopDragging();
+    };
+  }, []);
+
   function updateAnswer(key, value) {
     setAnswers((current) => ({
       ...current,
@@ -157,15 +220,26 @@ export default function ReadingTestMode({ testData }) {
     }));
   }
 
+  function startResizing(event) {
+    dragStateRef.current.dragging = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    event.preventDefault();
+  }
+
   const sections = Array.isArray(testData?.sections) ? testData.sections : [];
   const questions = Array.isArray(testData?.questions) ? testData.questions : [];
   const hasSections = sections.length > 0;
+  const rightWidth = 100 - leftWidth;
 
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-base-200 text-base-content">
       {hasSections ? (
-        <>
-          <div className="h-full w-3/5 overflow-y-auto border-r border-base-300 bg-base-100 p-6">
+        <div ref={containerRef} className="flex h-full w-full overflow-hidden">
+          <div
+            className="h-full overflow-y-auto border-r border-base-300 bg-base-100 p-6"
+            style={{ width: `${leftWidth}%` }}
+          >
             <div className="space-y-8">
               <section className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
@@ -197,7 +271,27 @@ export default function ReadingTestMode({ testData }) {
             </div>
           </div>
 
-          <div className="h-full w-2/5 overflow-y-auto bg-base-200 p-6">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize reading panels"
+            aria-valuemin={MIN_LEFT_WIDTH}
+            aria-valuemax={MAX_LEFT_WIDTH}
+            aria-valuenow={Math.round(leftWidth)}
+            tabIndex={0}
+            className="reading-test-divider relative h-full w-3 shrink-0 bg-base-200"
+            onPointerDown={startResizing}
+          >
+            <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-base-300" />
+            <div className="pointer-events-none absolute left-1/2 top-1/2 flex h-12 w-2 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-base-100 shadow-sm">
+              <span className="h-6 w-[2px] rounded-full bg-base-300" />
+            </div>
+          </div>
+
+          <div
+            className="h-full overflow-y-auto bg-base-200 p-6"
+            style={{ width: `${rightWidth}%` }}
+          >
             <div className="space-y-8">
               {sections.map((section, sectionIndex) => (
                 <section key={`question-section-${sectionIndex}`} className="space-y-6">
@@ -247,7 +341,7 @@ export default function ReadingTestMode({ testData }) {
               ))}
             </div>
           </div>
-        </>
+        </div>
       ) : (
         <div className="p-6">
           <div className="rounded-2xl border border-base-300 bg-base-100 p-8 shadow-sm">
@@ -259,6 +353,13 @@ export default function ReadingTestMode({ testData }) {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .reading-test-divider {
+          cursor: col-resize;
+          touch-action: none;
+        }
+      `}</style>
     </main>
   );
 }
