@@ -544,6 +544,18 @@ export default function CreatorPage() {
   const activeItem = allSidebarItems.find((item) => item.key === activeItemKey);
 
   useEffect(() => {
+    if (!writingTestNotice) {
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setWritingTestNotice("");
+    }, 3000);
+
+    return () => clearTimeout(timeoutId);
+  }, [writingTestNotice]);
+
+  useEffect(() => {
     async function loadWritingTests() {
       try {
         setIsWritingTestsLoading(true);
@@ -703,13 +715,13 @@ export default function CreatorPage() {
         "Saving the writing test took too long. Please try again."
       );
 
-      setWritingTests((currentTests) => [
-        savedTest,
-        ...currentTests.filter((test) => test.id !== savedTest.id),
-      ]);
-      setWritingTestNotice(notice);
-      setIsWritingTestComposerOpen(false);
-      setEditingWritingTestId("");
+        setWritingTests((currentTests) => [
+          savedTest,
+          ...currentTests.filter((test) => test.id !== savedTest.id),
+        ]);
+        setWritingTestNotice(notice === "Test saved." ? "" : notice);
+        setIsWritingTestComposerOpen(false);
+        setEditingWritingTestId("");
     } catch (error) {
       console.error("[Creator] Failed to save writing test:", error);
       setWritingTestError(
