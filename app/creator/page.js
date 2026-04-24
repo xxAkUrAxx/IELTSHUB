@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AcademicCapIcon,
   Bars3Icon,
@@ -17,6 +17,19 @@ import {
   PlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
+import {
+  collection,
+  doc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref,
+  uploadBytes,
+} from "firebase/storage";
+import { db, storage } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
 const mockExamItems = [
@@ -84,6 +97,40 @@ const allSidebarItems = sidebarSections.flatMap((section) => section.items);
 
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
+}
+
+function formatCreatedAt(createdAt) {
+  if (!createdAt) {
+    return "Unknown date";
+  }
+
+  if (typeof createdAt.toDate === "function") {
+    return createdAt.toDate().toLocaleDateString();
+  }
+
+  const parsedDate = new Date(createdAt);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Unknown date";
+  }
+
+  return parsedDate.toLocaleDateString();
+}
+
+function normalizeWritingTest(snapshot) {
+  const data = snapshot.data();
+
+  return {
+    id: snapshot.id,
+    name: data.name || "Writing Test",
+    difficulty: data.difficulty || "Medium",
+    createdAt: data.createdAt || data.date || "",
+    type: data.type || "writing",
+    date: data.date || "",
+    task1Prompt: data.task1Prompt || "",
+    task2Prompt: data.task2Prompt || "",
+    task1ImageUrl: data.task1ImageUrl || "",
+    task1ImagePath: data.task1ImagePath || "",
+  };
 }
 
 function getDifficultyTextColor(difficulty) {
@@ -206,12 +253,47 @@ function CreatorActionButton({ onClick, children }) {
   );
 }
 
+function WritingTestCard({ test }) {
+  return (
+    <article className="card border border-base-300 bg-base-100 shadow-sm">
+      <div className="card-body gap-4 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold tracking-tight">
+              {test.name}
+            </h2>
+            <div className="badge badge-outline">{test.difficulty}</div>
+          </div>
+        </div>
+
+        <p className="text-sm text-base-content/65">
+          Created: {formatCreatedAt(test.createdAt)}
+        </p>
+
+        {test.task1ImageUrl ? (
+          <div className="overflow-hidden rounded-2xl border border-base-300">
+            <img
+              src={test.task1ImageUrl}
+              alt={`${test.name} Task 1`}
+              className="h-40 w-full object-cover"
+            />
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 function WritingTestPanel({
   formValues,
   selectedImageName,
+  selectedImagePreviewUrl,
+  isSaving,
+  errorMessage,
   onClose,
   onChange,
   onImageChange,
+  onSave,
 }) {
   return (
     <section className="w-full max-w-5xl rounded-3xl border border-base-300 bg-base-100 shadow-xl">
@@ -289,23 +371,37 @@ function WritingTestPanel({
             <h3 className="text-xl font-semibold">Part 1</h3>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="text-3xl font-black uppercase tracking-[0.18em] text-[#1b2ea8]">
+                Writing Task 1
+              </p>
+              <p className="text-lg font-medium">
+                You should spend about 20 minutes on this task.
+              </p>
+            </div>
+
             <label className="form-control">
-              <span className="label-text mb-2 font-medium">
-                Question / Statement
-              </span>
+              <span className="label-text mb-2 font-medium">Task Prompt</span>
               <textarea
-                className="textarea textarea-bordered min-h-40 w-full"
-                placeholder="Enter the Part 1 question or statement"
+                className="textarea textarea-bordered min-h-44 w-full leading-7"
+                placeholder={
+                  "Enter the Task 1 prompt here.\n\nUse blank lines, numbering, or extra instructions exactly as you want them to appear."
+                }
                 value={formValues.part1Prompt}
                 onChange={(event) =>
                   onChange("part1Prompt", event.target.value)
                 }
               />
+              <span className="label-text-alt mt-2 text-base-content/60">
+                Blank lines and line breaks are preserved while editing.
+              </span>
             </label>
 
+            <p className="text-lg font-medium">Write at least 150 words.</p>
+
             <div className="rounded-2xl border border-dashed border-base-300 bg-base-200/40 p-4">
-              <p className="mb-2 font-medium">Upload Image</p>
+              <p className="mb-3 font-medium">Upload Image</p>
               <input
                 type="file"
                 accept="image/*"
@@ -315,6 +411,23 @@ function WritingTestPanel({
               <p className="mt-3 text-sm text-base-content/65">
                 {selectedImageName || "No image selected"}
               </p>
+
+              <div className="mt-4 rounded-2xl border border-base-300 bg-base-100 p-4">
+                <p className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-base-content/45">
+                  Image Preview
+                </p>
+                {selectedImagePreviewUrl ? (
+                  <img
+                    src={selectedImagePreviewUrl}
+                    alt="Task 1 uploaded preview"
+                    className="max-h-[32rem] w-full rounded-xl object-contain"
+                  />
+                ) : (
+                  <div className="flex min-h-56 items-center justify-center rounded-xl border border-dashed border-base-300 bg-base-200/50 px-6 text-center text-base-content/55">
+                    Uploaded Task 1 visual will appear here.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -327,26 +440,56 @@ function WritingTestPanel({
             <h3 className="text-xl font-semibold">Part 2</h3>
           </div>
 
-          <label className="form-control">
-            <span className="label-text mb-2 font-medium">Question / Prompt</span>
-            <textarea
-              className="textarea textarea-bordered min-h-40 w-full"
-              placeholder="Enter the Part 2 text or question"
-              value={formValues.part2Prompt}
-              onChange={(event) => onChange("part2Prompt", event.target.value)}
-            />
-          </label>
+          <div className="rounded-2xl border border-base-300 bg-base-100 p-5">
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-3xl font-black uppercase tracking-[0.18em] text-[#1b2ea8]">
+                  Writing Task 2
+                </p>
+                <p className="text-lg font-medium">
+                  You should spend about 40 minutes on this task.
+                </p>
+                <p className="text-lg font-medium">
+                  Write about the following topic:
+                </p>
+              </div>
+
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium">
+                  Task Prompt
+                </span>
+                <textarea
+                  className="textarea textarea-bordered min-h-52 w-full leading-7"
+                  placeholder={
+                    "Enter the Task 2 prompt here.\n\nUse blank lines, numbering, or extra instructions exactly as you want them to appear."
+                  }
+                  value={formValues.part2Prompt}
+                  onChange={(event) => onChange("part2Prompt", event.target.value)}
+                />
+                <span className="label-text-alt mt-2 text-base-content/60">
+                  Blank lines and line breaks are preserved while editing.
+                </span>
+              </label>
+
+              <div className="space-y-3">
+                <p className="text-lg font-medium">Write at least 250 words.</p>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
 
       <div className="flex justify-end gap-3 border-t border-base-300 px-6 py-5">
+        {errorMessage ? (
+          <p className="mr-auto self-center text-sm font-medium text-error">
+            {errorMessage}
+          </p>
+        ) : null}
         <button type="button" className="btn" onClick={onClose}>
           Close
         </button>
-        <CreatorActionButton
-          onClick={() => console.log("[Creator] Writing test draft:", formValues)}
-        >
-          Save Draft
+        <CreatorActionButton onClick={onSave}>
+          {isSaving ? "Saving..." : "Save Test"}
         </CreatorActionButton>
       </div>
     </section>
@@ -359,6 +502,10 @@ export default function CreatorPage() {
   const [openSectionKey, setOpenSectionKey] = useState("mock-exams");
   const [activeItemKey, setActiveItemKey] = useState("reading-test");
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
+  const [writingTests, setWritingTests] = useState([]);
+  const [isWritingTestsLoading, setIsWritingTestsLoading] = useState(true);
+  const [isSavingWritingTest, setIsSavingWritingTest] = useState(false);
+  const [writingTestError, setWritingTestError] = useState("");
   const [writingTestForm, setWritingTestForm] = useState({
     testName: "",
     testDifficulty: "medium",
@@ -367,7 +514,52 @@ export default function CreatorPage() {
     part2Prompt: "",
   });
   const [selectedPart1ImageName, setSelectedPart1ImageName] = useState("");
+  const [selectedPart1ImageFile, setSelectedPart1ImageFile] = useState(null);
+  const [selectedPart1ImagePreviewUrl, setSelectedPart1ImagePreviewUrl] =
+    useState("");
   const activeItem = allSidebarItems.find((item) => item.key === activeItemKey);
+
+  useEffect(() => {
+    async function loadWritingTests() {
+      try {
+        setIsWritingTestsLoading(true);
+        const snapshot = await getDocs(collection(db, "writingTests"));
+        const tests = snapshot.docs
+          .map(normalizeWritingTest)
+          .sort((left, right) => {
+            const leftTime = new Date(
+              typeof left.createdAt?.toDate === "function"
+                ? left.createdAt.toDate()
+                : left.createdAt
+            ).getTime();
+            const rightTime = new Date(
+              typeof right.createdAt?.toDate === "function"
+                ? right.createdAt.toDate()
+                : right.createdAt
+            ).getTime();
+
+            return (Number.isNaN(rightTime) ? 0 : rightTime) -
+              (Number.isNaN(leftTime) ? 0 : leftTime);
+          });
+
+        setWritingTests(tests);
+      } catch (error) {
+        console.error("[Creator] Failed to load writing tests:", error);
+      } finally {
+        setIsWritingTestsLoading(false);
+      }
+    }
+
+    loadWritingTests();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (selectedPart1ImagePreviewUrl) {
+        URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
+      }
+    };
+  }, [selectedPart1ImagePreviewUrl]);
 
   function handleCreateNew() {
     if (!activeItem) {
@@ -375,10 +567,20 @@ export default function CreatorPage() {
     }
 
     if (activeItem.key === "writing-test") {
-      setWritingTestForm((currentForm) => ({
-        ...currentForm,
+      setWritingTestError("");
+      setWritingTestForm({
+        testName: "",
+        testDifficulty: "medium",
         date: getTodayDate(),
-      }));
+        part1Prompt: "",
+        part2Prompt: "",
+      });
+      setSelectedPart1ImageName("");
+      setSelectedPart1ImageFile(null);
+      if (selectedPart1ImagePreviewUrl) {
+        URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
+      }
+      setSelectedPart1ImagePreviewUrl("");
       setIsWritingTestComposerOpen(true);
       return;
     }
@@ -405,11 +607,113 @@ export default function CreatorPage() {
 
   function handleWritingTestImageChange(event) {
     const nextFile = event.target.files?.[0];
+    setSelectedPart1ImageFile(nextFile || null);
     setSelectedPart1ImageName(nextFile ? nextFile.name : "");
+    if (selectedPart1ImagePreviewUrl) {
+      URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
+    }
+    setSelectedPart1ImagePreviewUrl(
+      nextFile ? URL.createObjectURL(nextFile) : ""
+    );
   }
 
   function handleCloseWritingTestComposer() {
     setIsWritingTestComposerOpen(false);
+    setWritingTestError("");
+  }
+
+  async function handleSaveWritingTest() {
+    if (isSavingWritingTest) {
+      return;
+    }
+
+    if (!writingTestForm.testName.trim()) {
+      setWritingTestError("Test name is required.");
+      return;
+    }
+
+    if (!writingTestForm.part1Prompt.trim()) {
+      setWritingTestError("Task 1 prompt is required.");
+      return;
+    }
+
+    if (!writingTestForm.part2Prompt.trim()) {
+      setWritingTestError("Task 2 prompt is required.");
+      return;
+    }
+
+    try {
+      setIsSavingWritingTest(true);
+      setWritingTestError("");
+
+      const writingTestsCollection = collection(db, "writingTests");
+      const writingTestDocRef = doc(writingTestsCollection);
+
+      let task1ImageUrl = "";
+      let task1ImagePath = "";
+
+      if (selectedPart1ImageFile) {
+        const safeFileName = selectedPart1ImageFile.name.replace(/\s+/g, "-");
+        task1ImagePath = `writingTests/${writingTestDocRef.id}/task1-${Date.now()}-${safeFileName}`;
+        const imageRef = ref(storage, task1ImagePath);
+
+        await uploadBytes(imageRef, selectedPart1ImageFile);
+        task1ImageUrl = await getDownloadURL(imageRef);
+      }
+
+      const difficultyLabel =
+        difficultyOptions.find(
+          (option) => option.value === writingTestForm.testDifficulty
+        )?.label || "Medium";
+
+      const nextTest = {
+        id: writingTestDocRef.id,
+        type: "writing",
+        name: writingTestForm.testName.trim(),
+        difficulty: difficultyLabel,
+        date: writingTestForm.date,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        task1Prompt: writingTestForm.part1Prompt,
+        task1ImageUrl,
+        task1ImagePath,
+        task2Prompt: writingTestForm.part2Prompt,
+        sections: [
+          {
+            id: "task-1",
+            label: "Writing Task 1",
+            prompt: writingTestForm.part1Prompt,
+            imageUrl: task1ImageUrl,
+            imagePath: task1ImagePath,
+            minimumWords: 150,
+            recommendedMinutes: 20,
+          },
+          {
+            id: "task-2",
+            label: "Writing Task 2",
+            prompt: writingTestForm.part2Prompt,
+            minimumWords: 250,
+            recommendedMinutes: 40,
+          },
+        ],
+      };
+
+      await setDoc(writingTestDocRef, nextTest);
+
+      setWritingTests((currentTests) => [
+        {
+          ...nextTest,
+          createdAt: new Date().toISOString(),
+        },
+        ...currentTests,
+      ]);
+      setIsWritingTestComposerOpen(false);
+    } catch (error) {
+      console.error("[Creator] Failed to save writing test:", error);
+      setWritingTestError("Failed to save writing test.");
+    } finally {
+      setIsSavingWritingTest(false);
+    }
   }
 
   if (!isAuthorized) {
@@ -480,15 +784,41 @@ export default function CreatorPage() {
               </CreatorActionButton>
             </header>
 
-            {activeItemKey === "writing-test" && isWritingTestComposerOpen ? (
-              <div className="flex flex-1 items-start justify-start">
-                <WritingTestPanel
-                  formValues={writingTestForm}
-                  selectedImageName={selectedPart1ImageName}
-                  onClose={handleCloseWritingTestComposer}
-                  onChange={handleWritingTestChange}
-                  onImageChange={handleWritingTestImageChange}
-                />
+            {activeItemKey === "writing-test" ? (
+              <div className="flex flex-1 flex-col items-start gap-6">
+                {isWritingTestComposerOpen ? (
+                  <WritingTestPanel
+                    formValues={writingTestForm}
+                    selectedImageName={selectedPart1ImageName}
+                    selectedImagePreviewUrl={selectedPart1ImagePreviewUrl}
+                    isSaving={isSavingWritingTest}
+                    errorMessage={writingTestError}
+                    onClose={handleCloseWritingTestComposer}
+                    onChange={handleWritingTestChange}
+                    onImageChange={handleWritingTestImageChange}
+                    onSave={handleSaveWritingTest}
+                  />
+                ) : null}
+
+                {writingTests.length > 0 ? (
+                  <div className="grid w-full max-w-5xl gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {writingTests.map((test) => (
+                      <WritingTestCard key={test.id} test={test} />
+                    ))}
+                  </div>
+                ) : isWritingTestsLoading ? (
+                  <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+                    <p className="text-lg font-medium text-base-content/65">
+                      Loading writing tests...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+                    <p className="text-lg font-medium text-base-content/65">
+                      No writing tests yet.
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-1 items-center justify-center">
