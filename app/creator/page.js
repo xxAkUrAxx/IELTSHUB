@@ -17,21 +17,8 @@ import {
   PlusIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
-import {
-  collection,
-  doc,
-  getDocs,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
-import {
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
-import { db, storage } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
+import { listWritingTests, saveWritingTest } from "../../lib/tests/writing-tests";
 
 const mockExamItems = [
   {
@@ -100,22 +87,6 @@ function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
-async function withTimeout(promise, timeoutMs, message) {
-  let timerId;
-
-  const timeoutPromise = new Promise((_, reject) => {
-    timerId = setTimeout(() => {
-      reject(new Error(message));
-    }, timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    clearTimeout(timerId);
-  }
-}
-
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
     return "Unknown date";
@@ -131,23 +102,6 @@ function formatCreatedAt(createdAt) {
   }
 
   return parsedDate.toLocaleDateString();
-}
-
-function normalizeWritingTest(snapshot) {
-  const data = snapshot.data();
-
-  return {
-    id: snapshot.id,
-    name: data.name || "Writing Test",
-    difficulty: data.difficulty || "Medium",
-    createdAt: data.createdAt || data.date || "",
-    type: data.type || "writing",
-    date: data.date || "",
-    task1Prompt: data.task1Prompt || "",
-    task2Prompt: data.task2Prompt || "",
-    task1ImageUrl: data.task1ImageUrl || "",
-    task1ImagePath: data.task1ImagePath || "",
-  };
 }
 
 function getDifficultyTextColor(difficulty) {
@@ -302,6 +256,7 @@ function WritingTestPanel({
   selectedImageName,
   selectedImagePreviewUrl,
   isSaving,
+  uploadProgress,
   errorMessage,
   onClose,
   onChange,
@@ -331,6 +286,14 @@ function WritingTestPanel({
       </div>
 
       <div className="grid gap-6 px-6 py-6">
+        {isSaving ? (
+          <div className="rounded-2xl border border-info/30 bg-info/10 px-5 py-4 text-sm font-medium text-info-content">
+            {selectedImageName
+              ? `Uploading image and saving test... ${uploadProgress}%`
+              : "Saving test..."}
+          </div>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-3">
           <label className="form-control md:col-span-1">
             <span className="label-text mb-2 font-medium">Test Name</span>
@@ -518,6 +481,7 @@ export default function CreatorPage() {
   const [writingTests, setWritingTests] = useState([]);
   const [isWritingTestsLoading, setIsWritingTestsLoading] = useState(true);
   const [isSavingWritingTest, setIsSavingWritingTest] = useState(false);
+  const [writingTestUploadProgress, setWritingTestUploadProgress] = useState(0);
   const [writingTestError, setWritingTestError] = useState("");
   const [writingTestNotice, setWritingTestNotice] = useState("");
   const [editingWritingTestId, setEditingWritingTestId] = useState("");
@@ -538,26 +502,7 @@ export default function CreatorPage() {
     async function loadWritingTests() {
       try {
         setIsWritingTestsLoading(true);
-        const snapshot = await getDocs(collection(db, "writingTests"));
-        const tests = snapshot.docs
-          .map(normalizeWritingTest)
-          .sort((left, right) => {
-            const leftTime = new Date(
-              typeof left.createdAt?.toDate === "function"
-                ? left.createdAt.toDate()
-                : left.createdAt
-            ).getTime();
-            const rightTime = new Date(
-              typeof right.createdAt?.toDate === "function"
-                ? right.createdAt.toDate()
-                : right.createdAt
-            ).getTime();
-
-            return (Number.isNaN(rightTime) ? 0 : rightTime) -
-              (Number.isNaN(leftTime) ? 0 : leftTime);
-          });
-
-        setWritingTests(tests);
+        setWritingTests(await listWritingTests());
       } catch (error) {
         console.error("[Creator] Failed to load writing tests:", error);
       } finally {
@@ -584,6 +529,7 @@ export default function CreatorPage() {
     if (activeItem.key === "writing-test") {
       setWritingTestError("");
       setWritingTestNotice("");
+      setWritingTestUploadProgress(0);
       setEditingWritingTestId("");
       setWritingTestForm({
         testName: "",
@@ -642,6 +588,7 @@ export default function CreatorPage() {
     setIsWritingTestComposerOpen(false);
     setWritingTestError("");
     setWritingTestNotice("");
+    setWritingTestUploadProgress(0);
     setEditingWritingTestId("");
   }
 
@@ -694,126 +641,30 @@ export default function CreatorPage() {
       setIsSavingWritingTest(true);
       setWritingTestError("");
       setWritingTestNotice("");
-
-      const writingTestsCollection = collection(db, "writingTests");
-      const writingTestDocRef = editingWritingTestId
-        ? doc(db, "writingTests", editingWritingTestId)
-        : doc(writingTestsCollection);
+      setWritingTestUploadProgress(0);
 
       const difficultyLabel =
         difficultyOptions.find(
           (option) => option.value === writingTestForm.testDifficulty
         )?.label || "Medium";
-
-      let task1ImagePath =
-        !selectedPart1ImageFile && selectedPart1ImagePreviewUrl
-          ? writingTests.find((test) => test.id === writingTestDocRef.id)?.task1ImagePath || ""
-          : "";
-      if (selectedPart1ImageFile) {
-        const safeFileName = selectedPart1ImageFile.name.replace(/\s+/g, "-");
-        task1ImagePath = `writingTests/${writingTestDocRef.id}/task1-${Date.now()}-${safeFileName}`;
-      }
-
-      const nextTest = {
-        id: writingTestDocRef.id,
-        type: "writing",
-        name: writingTestForm.testName.trim(),
-        difficulty: difficultyLabel,
-        date: writingTestForm.date,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        task1Prompt: writingTestForm.part1Prompt,
-        task1ImageUrl:
-          !selectedPart1ImageFile && selectedPart1ImagePreviewUrl
-            ? selectedPart1ImagePreviewUrl
-            : "",
-        task1ImagePath,
-        task2Prompt: writingTestForm.part2Prompt,
-        sections: [
-          {
-            id: "task-1",
-            label: "Writing Task 1",
-            prompt: writingTestForm.part1Prompt,
-            imageUrl:
-              !selectedPart1ImageFile && selectedPart1ImagePreviewUrl
-                ? selectedPart1ImagePreviewUrl
-                : "",
-            imagePath: task1ImagePath,
-            minimumWords: 150,
-            recommendedMinutes: 20,
-          },
-          {
-            id: "task-2",
-            label: "Writing Task 2",
-            prompt: writingTestForm.part2Prompt,
-            minimumWords: 250,
-            recommendedMinutes: 40,
-          },
-        ],
-      };
-
-      await setDoc(writingTestDocRef, nextTest);
-
-      let resolvedTask1ImageUrl = "";
-      let nextNotice = "Test saved.";
-
-      if (selectedPart1ImageFile && task1ImagePath) {
-        try {
-          const imageRef = ref(storage, task1ImagePath);
-
-          await withTimeout(
-            uploadBytes(imageRef, selectedPart1ImageFile),
-            120000,
-            "Image upload timed out."
-          );
-
-          resolvedTask1ImageUrl = await withTimeout(
-            getDownloadURL(imageRef),
-            30000,
-            "Fetching the uploaded image URL timed out."
-          );
-
-          await updateDoc(writingTestDocRef, {
-            task1ImageUrl: resolvedTask1ImageUrl,
-            updatedAt: serverTimestamp(),
-            sections: [
-              {
-                id: "task-1",
-                label: "Writing Task 1",
-                prompt: writingTestForm.part1Prompt,
-                imageUrl: resolvedTask1ImageUrl,
-                imagePath: task1ImagePath,
-                minimumWords: 150,
-                recommendedMinutes: 20,
-              },
-              {
-                id: "task-2",
-                label: "Writing Task 2",
-                prompt: writingTestForm.part2Prompt,
-                minimumWords: 250,
-                recommendedMinutes: 40,
-              },
-            ],
-          });
-
-          nextNotice = "Test saved.";
-        } catch (uploadError) {
-          console.error("[Creator] Task 1 image upload failed:", uploadError);
-          nextNotice =
-            "The test was saved, but the image upload did not complete.";
-        }
-      }
+      const existingTest = writingTests.find(
+        (test) => test.id === editingWritingTestId
+      );
+      const { notice, savedTest } = await saveWritingTest({
+        editingTestId,
+        formValues: writingTestForm,
+        difficultyLabel,
+        selectedImageFile: selectedPart1ImageFile,
+        existingImageUrl: selectedPart1ImagePreviewUrl,
+        existingImagePath: existingTest?.task1ImagePath || "",
+        onUploadProgress: setWritingTestUploadProgress,
+      });
 
       setWritingTests((currentTests) => [
-        {
-          ...nextTest,
-          createdAt: new Date().toISOString(),
-          task1ImageUrl:
-            resolvedTask1ImageUrl || selectedPart1ImagePreviewUrl || "",
-        },
-        ...currentTests.filter((test) => test.id !== writingTestDocRef.id),
+        savedTest,
+        ...currentTests.filter((test) => test.id !== savedTest.id),
       ]);
-      setWritingTestNotice(nextNotice);
+      setWritingTestNotice(notice);
       setIsWritingTestComposerOpen(false);
       setEditingWritingTestId("");
     } catch (error) {
@@ -902,6 +753,7 @@ export default function CreatorPage() {
                     selectedImageName={selectedPart1ImageName}
                     selectedImagePreviewUrl={selectedPart1ImagePreviewUrl}
                     isSaving={isSavingWritingTest}
+                    uploadProgress={writingTestUploadProgress}
                     errorMessage={writingTestError}
                     onClose={handleCloseWritingTestComposer}
                     onChange={handleWritingTestChange}
