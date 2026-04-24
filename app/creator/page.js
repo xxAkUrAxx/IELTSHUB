@@ -15,6 +15,7 @@ import {
   MusicalNoteIcon,
   PencilSquareIcon,
   PlusIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 
@@ -80,6 +81,28 @@ const sidebarSections = [
 ];
 
 const allSidebarItems = sidebarSections.flatMap((section) => section.items);
+
+function getTodayDate() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function getDifficultyTextColor(difficulty) {
+  if (difficulty === "easy") {
+    return "#4CCD99";
+  }
+
+  if (difficulty === "hard") {
+    return "#AE2448";
+  }
+
+  return "#FFC700";
+}
+
+const difficultyOptions = [
+  { value: "easy", label: "Easy", color: "#4CCD99" },
+  { value: "medium", label: "Medium", color: "#FFC700" },
+  { value: "hard", label: "Hard", color: "#AE2448" },
+];
 
 function SidebarItem({
   item,
@@ -183,15 +206,180 @@ function CreatorActionButton({ onClick, children }) {
   );
 }
 
+function WritingTestPanel({
+  formValues,
+  selectedImageName,
+  onClose,
+  onChange,
+  onImageChange,
+}) {
+  return (
+    <section className="w-full max-w-5xl rounded-3xl border border-base-300 bg-base-100 shadow-xl">
+      <div className="flex items-center justify-between border-b border-base-300 px-6 py-5">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/45">
+            IELTS Writing
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Create Writing Test
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-ghost btn-square rounded-xl"
+          aria-label="Close writing test creator"
+          onClick={onClose}
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="grid gap-6 px-6 py-6">
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="form-control md:col-span-1">
+            <span className="label-text mb-2 font-medium">Test Name</span>
+            <input
+              type="text"
+              className="input input-bordered w-full"
+              placeholder="Enter test name"
+              value={formValues.testName}
+              onChange={(event) => onChange("testName", event.target.value)}
+            />
+          </label>
+
+          <label className="form-control">
+            <span className="label-text mb-2 font-medium">Test Difficulty</span>
+            <select
+              className="select select-bordered w-full"
+              style={{ color: getDifficultyTextColor(formValues.testDifficulty) }}
+              value={formValues.testDifficulty}
+              onChange={(event) =>
+                onChange("testDifficulty", event.target.value)
+              }
+            >
+              {difficultyOptions.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  style={{ color: option.color }}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="form-control">
+            <span className="label-text mb-2 font-medium">Date</span>
+            <input
+              type="text"
+              className="input input-bordered w-full"
+              value={formValues.date}
+              readOnly
+            />
+          </label>
+        </div>
+
+        <section className="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+          <div className="mb-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/45">
+              Section 1
+            </p>
+            <h3 className="text-xl font-semibold">Part 1</h3>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+            <label className="form-control">
+              <span className="label-text mb-2 font-medium">
+                Question / Statement
+              </span>
+              <textarea
+                className="textarea textarea-bordered min-h-40 w-full"
+                placeholder="Enter the Part 1 question or statement"
+                value={formValues.part1Prompt}
+                onChange={(event) =>
+                  onChange("part1Prompt", event.target.value)
+                }
+              />
+            </label>
+
+            <div className="rounded-2xl border border-dashed border-base-300 bg-base-200/40 p-4">
+              <p className="mb-2 font-medium">Upload Image</p>
+              <input
+                type="file"
+                accept="image/*"
+                className="file-input file-input-bordered w-full"
+                onChange={onImageChange}
+              />
+              <p className="mt-3 text-sm text-base-content/65">
+                {selectedImageName || "No image selected"}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+          <div className="mb-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/45">
+              Section 2
+            </p>
+            <h3 className="text-xl font-semibold">Part 2</h3>
+          </div>
+
+          <label className="form-control">
+            <span className="label-text mb-2 font-medium">Question / Prompt</span>
+            <textarea
+              className="textarea textarea-bordered min-h-40 w-full"
+              placeholder="Enter the Part 2 text or question"
+              value={formValues.part2Prompt}
+              onChange={(event) => onChange("part2Prompt", event.target.value)}
+            />
+          </label>
+        </section>
+      </div>
+
+      <div className="flex justify-end gap-3 border-t border-base-300 px-6 py-5">
+        <button type="button" className="btn" onClick={onClose}>
+          Close
+        </button>
+        <CreatorActionButton
+          onClick={() => console.log("[Creator] Writing test draft:", formValues)}
+        >
+          Save Draft
+        </CreatorActionButton>
+      </div>
+    </section>
+  );
+}
+
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSectionKey, setOpenSectionKey] = useState("mock-exams");
   const [activeItemKey, setActiveItemKey] = useState("reading-test");
+  const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
+  const [writingTestForm, setWritingTestForm] = useState({
+    testName: "",
+    testDifficulty: "medium",
+    date: getTodayDate(),
+    part1Prompt: "",
+    part2Prompt: "",
+  });
+  const [selectedPart1ImageName, setSelectedPart1ImageName] = useState("");
   const activeItem = allSidebarItems.find((item) => item.key === activeItemKey);
 
   function handleCreateNew() {
     if (!activeItem) {
+      return;
+    }
+
+    if (activeItem.key === "writing-test") {
+      setWritingTestForm((currentForm) => ({
+        ...currentForm,
+        date: getTodayDate(),
+      }));
+      setIsWritingTestComposerOpen(true);
       return;
     }
 
@@ -206,6 +394,22 @@ export default function CreatorPage() {
 
   function handleSelectItem(itemKey) {
     setActiveItemKey(itemKey);
+  }
+
+  function handleWritingTestChange(field, value) {
+    setWritingTestForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }));
+  }
+
+  function handleWritingTestImageChange(event) {
+    const nextFile = event.target.files?.[0];
+    setSelectedPart1ImageName(nextFile ? nextFile.name : "");
+  }
+
+  function handleCloseWritingTestComposer() {
+    setIsWritingTestComposerOpen(false);
   }
 
   if (!isAuthorized) {
@@ -276,13 +480,25 @@ export default function CreatorPage() {
               </CreatorActionButton>
             </header>
 
-            <div className="flex flex-1 items-center justify-center">
-              <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
-                <p className="text-lg font-medium text-base-content/65">
-                  {activeItem?.label || "Creator Dashboard"} section is ready.
-                </p>
+            {activeItemKey === "writing-test" && isWritingTestComposerOpen ? (
+              <div className="flex flex-1 items-start justify-start">
+                <WritingTestPanel
+                  formValues={writingTestForm}
+                  selectedImageName={selectedPart1ImageName}
+                  onClose={handleCloseWritingTestComposer}
+                  onChange={handleWritingTestChange}
+                  onImageChange={handleWritingTestImageChange}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+                  <p className="text-lg font-medium text-base-content/65">
+                    {activeItem?.label || "Creator Dashboard"} section is ready.
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </main>
