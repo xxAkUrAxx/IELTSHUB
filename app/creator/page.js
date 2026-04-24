@@ -92,6 +92,28 @@ function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
+function revokePreviewUrl(url) {
+  if (typeof url === "string" && url.startsWith("blob:")) {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timerId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timerId);
+  }
+}
+
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
     return "Unknown date";
@@ -277,6 +299,7 @@ function WritingTestPanel({
   selectedImageName,
   selectedImagePreviewUrl,
   isSaving,
+  hasNewImageUpload,
   uploadProgress,
   errorMessage,
   onClose,
@@ -309,7 +332,7 @@ function WritingTestPanel({
       <div className="grid gap-6 px-6 py-6">
         {isSaving ? (
           <div className="rounded-2xl border border-info/30 bg-info/10 px-5 py-4 text-sm font-medium text-info-content">
-            {selectedImageName
+            {hasNewImageUpload
               ? `Uploading image and saving test... ${uploadProgress}%`
               : "Saving test..."}
           </div>
@@ -538,7 +561,7 @@ export default function CreatorPage() {
   useEffect(() => {
     return () => {
       if (selectedPart1ImagePreviewUrl) {
-        URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
+        revokePreviewUrl(selectedPart1ImagePreviewUrl);
       }
     };
   }, [selectedPart1ImagePreviewUrl]);
@@ -562,9 +585,7 @@ export default function CreatorPage() {
       });
       setSelectedPart1ImageName("");
       setSelectedPart1ImageFile(null);
-      if (selectedPart1ImagePreviewUrl) {
-        URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
-      }
+      revokePreviewUrl(selectedPart1ImagePreviewUrl);
       setSelectedPart1ImagePreviewUrl("");
       setIsWritingTestComposerOpen(true);
       return;
@@ -594,9 +615,7 @@ export default function CreatorPage() {
     const nextFile = event.target.files?.[0];
     setSelectedPart1ImageFile(nextFile || null);
     setSelectedPart1ImageName(nextFile ? nextFile.name : "");
-    if (selectedPart1ImagePreviewUrl) {
-      URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
-    }
+    revokePreviewUrl(selectedPart1ImagePreviewUrl);
     setSelectedPart1ImagePreviewUrl(
       nextFile ? URL.createObjectURL(nextFile) : ""
     );
@@ -630,11 +649,9 @@ export default function CreatorPage() {
       part1Prompt: test.task1Prompt || "",
       part2Prompt: test.task2Prompt || "",
     });
-    setSelectedPart1ImageName(test.task1ImagePath ? "Existing uploaded image" : "");
+    setSelectedPart1ImageName("");
     setSelectedPart1ImageFile(null);
-    if (selectedPart1ImagePreviewUrl) {
-      URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
-    }
+    revokePreviewUrl(selectedPart1ImagePreviewUrl);
     setSelectedPart1ImagePreviewUrl(test.task1ImageUrl || "");
     setIsWritingTestComposerOpen(true);
   }
@@ -672,15 +689,19 @@ export default function CreatorPage() {
       const existingTest = writingTests.find(
         (test) => test.id === editingWritingTestId
       );
-      const { notice, savedTest } = await saveWritingTest({
-        editingTestId: editingWritingTestId,
-        formValues: writingTestForm,
-        difficultyLabel,
-        selectedImageFile: selectedPart1ImageFile,
-        existingImageUrl: selectedPart1ImagePreviewUrl,
-        existingImagePath: existingTest?.task1ImagePath || "",
-        onUploadProgress: setWritingTestUploadProgress,
-      });
+      const { notice, savedTest } = await withTimeout(
+        saveWritingTest({
+          editingTestId: editingWritingTestId,
+          formValues: writingTestForm,
+          difficultyLabel,
+          selectedImageFile: selectedPart1ImageFile,
+          existingImageUrl: selectedPart1ImagePreviewUrl,
+          existingImagePath: existingTest?.task1ImagePath || "",
+          onUploadProgress: setWritingTestUploadProgress,
+        }),
+        selectedPart1ImageFile ? 210000 : 45000,
+        "Saving the writing test took too long. Please try again."
+      );
 
       setWritingTests((currentTests) => [
         savedTest,
@@ -712,8 +733,6 @@ export default function CreatorPage() {
       setIsDeletingWritingTest(true);
       setWritingTestError("");
       setWritingTestNotice("");
-
-      await deleteWritingTest(test);
       setWritingTests((currentTests) =>
         currentTests.filter((currentTest) => currentTest.id !== test.id)
       );
@@ -722,9 +741,33 @@ export default function CreatorPage() {
         handleCloseWritingTestComposer();
       }
 
+      await withTimeout(
+        deleteWritingTest(test),
+        30000,
+        "Deleting the writing test took too long. Please try again."
+      );
+
       setWritingTestNotice("Test deleted.");
     } catch (error) {
       console.error("[Creator] Failed to delete writing test:", error);
+      setWritingTests((currentTests) => {
+        const testStillMissing = !currentTests.some(
+          (currentTest) => currentTest.id === test.id
+        );
+
+        if (!testStillMissing) {
+          return currentTests;
+        }
+
+        const restoredTests = [...currentTests, test];
+        return restoredTests.sort((left, right) => {
+          const leftTime = new Date(left.createdAt).getTime();
+          const rightTime = new Date(right.createdAt).getTime();
+
+          return (Number.isNaN(rightTime) ? 0 : rightTime) -
+            (Number.isNaN(leftTime) ? 0 : leftTime);
+        });
+      });
       setWritingTestError(error?.message || "Failed to delete writing test.");
     } finally {
       setIsDeletingWritingTest(false);
@@ -807,6 +850,7 @@ export default function CreatorPage() {
                     selectedImageName={selectedPart1ImageName}
                     selectedImagePreviewUrl={selectedPart1ImagePreviewUrl}
                     isSaving={isSavingWritingTest}
+                    hasNewImageUpload={!!selectedPart1ImageFile}
                     uploadProgress={writingTestUploadProgress}
                     errorMessage={writingTestError}
                     onClose={handleCloseWritingTestComposer}
