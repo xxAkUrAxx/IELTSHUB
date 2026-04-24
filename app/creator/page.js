@@ -23,6 +23,7 @@ import {
   getDocs,
   serverTimestamp,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import {
   getDownloadURL,
@@ -97,6 +98,22 @@ const allSidebarItems = sidebarSections.flatMap((section) => section.items);
 
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timerId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timerId);
+  }
 }
 
 function formatCreatedAt(createdAt) {
@@ -253,7 +270,7 @@ function CreatorActionButton({ onClick, children }) {
   );
 }
 
-function WritingTestCard({ test }) {
+function WritingTestCard({ test, onEdit }) {
   return (
     <article className="card border border-base-300 bg-base-100 shadow-sm">
       <div className="card-body gap-4 p-6">
@@ -270,15 +287,11 @@ function WritingTestCard({ test }) {
           Created: {formatCreatedAt(test.createdAt)}
         </p>
 
-        {test.task1ImageUrl ? (
-          <div className="overflow-hidden rounded-2xl border border-base-300">
-            <img
-              src={test.task1ImageUrl}
-              alt={`${test.name} Task 1`}
-              className="h-40 w-full object-cover"
-            />
-          </div>
-        ) : null}
+        <div className="card-actions justify-end">
+          <button type="button" className="btn btn-outline" onClick={() => onEdit(test)}>
+            Edit Test
+          </button>
+        </div>
       </div>
     </article>
   );
@@ -506,6 +519,8 @@ export default function CreatorPage() {
   const [isWritingTestsLoading, setIsWritingTestsLoading] = useState(true);
   const [isSavingWritingTest, setIsSavingWritingTest] = useState(false);
   const [writingTestError, setWritingTestError] = useState("");
+  const [writingTestNotice, setWritingTestNotice] = useState("");
+  const [editingWritingTestId, setEditingWritingTestId] = useState("");
   const [writingTestForm, setWritingTestForm] = useState({
     testName: "",
     testDifficulty: "medium",
@@ -568,6 +583,8 @@ export default function CreatorPage() {
 
     if (activeItem.key === "writing-test") {
       setWritingTestError("");
+      setWritingTestNotice("");
+      setEditingWritingTestId("");
       setWritingTestForm({
         testName: "",
         testDifficulty: "medium",
@@ -618,8 +635,39 @@ export default function CreatorPage() {
   }
 
   function handleCloseWritingTestComposer() {
+    if (isSavingWritingTest) {
+      return;
+    }
+
     setIsWritingTestComposerOpen(false);
     setWritingTestError("");
+    setWritingTestNotice("");
+    setEditingWritingTestId("");
+  }
+
+  function handleEditWritingTest(test) {
+    const matchingDifficulty =
+      difficultyOptions.find(
+        (option) => option.label.toLowerCase() === String(test.difficulty).toLowerCase()
+      )?.value || "medium";
+
+    setWritingTestError("");
+    setWritingTestNotice("");
+    setEditingWritingTestId(test.id);
+    setWritingTestForm({
+      testName: test.name || "",
+      testDifficulty: matchingDifficulty,
+      date: test.date || getTodayDate(),
+      part1Prompt: test.task1Prompt || "",
+      part2Prompt: test.task2Prompt || "",
+    });
+    setSelectedPart1ImageName(test.task1ImagePath ? "Existing uploaded image" : "");
+    setSelectedPart1ImageFile(null);
+    if (selectedPart1ImagePreviewUrl) {
+      URL.revokeObjectURL(selectedPart1ImagePreviewUrl);
+    }
+    setSelectedPart1ImagePreviewUrl(test.task1ImageUrl || "");
+    setIsWritingTestComposerOpen(true);
   }
 
   async function handleSaveWritingTest() {
@@ -645,26 +693,26 @@ export default function CreatorPage() {
     try {
       setIsSavingWritingTest(true);
       setWritingTestError("");
+      setWritingTestNotice("");
 
       const writingTestsCollection = collection(db, "writingTests");
-      const writingTestDocRef = doc(writingTestsCollection);
-
-      let task1ImageUrl = "";
-      let task1ImagePath = "";
-
-      if (selectedPart1ImageFile) {
-        const safeFileName = selectedPart1ImageFile.name.replace(/\s+/g, "-");
-        task1ImagePath = `writingTests/${writingTestDocRef.id}/task1-${Date.now()}-${safeFileName}`;
-        const imageRef = ref(storage, task1ImagePath);
-
-        await uploadBytes(imageRef, selectedPart1ImageFile);
-        task1ImageUrl = await getDownloadURL(imageRef);
-      }
+      const writingTestDocRef = editingWritingTestId
+        ? doc(db, "writingTests", editingWritingTestId)
+        : doc(writingTestsCollection);
 
       const difficultyLabel =
         difficultyOptions.find(
           (option) => option.value === writingTestForm.testDifficulty
         )?.label || "Medium";
+
+      let task1ImagePath =
+        !selectedPart1ImageFile && selectedPart1ImagePreviewUrl
+          ? writingTests.find((test) => test.id === writingTestDocRef.id)?.task1ImagePath || ""
+          : "";
+      if (selectedPart1ImageFile) {
+        const safeFileName = selectedPart1ImageFile.name.replace(/\s+/g, "-");
+        task1ImagePath = `writingTests/${writingTestDocRef.id}/task1-${Date.now()}-${safeFileName}`;
+      }
 
       const nextTest = {
         id: writingTestDocRef.id,
@@ -675,7 +723,10 @@ export default function CreatorPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         task1Prompt: writingTestForm.part1Prompt,
-        task1ImageUrl,
+        task1ImageUrl:
+          !selectedPart1ImageFile && selectedPart1ImagePreviewUrl
+            ? selectedPart1ImagePreviewUrl
+            : "",
         task1ImagePath,
         task2Prompt: writingTestForm.part2Prompt,
         sections: [
@@ -683,7 +734,10 @@ export default function CreatorPage() {
             id: "task-1",
             label: "Writing Task 1",
             prompt: writingTestForm.part1Prompt,
-            imageUrl: task1ImageUrl,
+            imageUrl:
+              !selectedPart1ImageFile && selectedPart1ImagePreviewUrl
+                ? selectedPart1ImagePreviewUrl
+                : "",
             imagePath: task1ImagePath,
             minimumWords: 150,
             recommendedMinutes: 20,
@@ -700,17 +754,73 @@ export default function CreatorPage() {
 
       await setDoc(writingTestDocRef, nextTest);
 
+      let resolvedTask1ImageUrl = "";
+      let nextNotice = "Test saved.";
+
+      if (selectedPart1ImageFile && task1ImagePath) {
+        try {
+          const imageRef = ref(storage, task1ImagePath);
+
+          await withTimeout(
+            uploadBytes(imageRef, selectedPart1ImageFile),
+            120000,
+            "Image upload timed out."
+          );
+
+          resolvedTask1ImageUrl = await withTimeout(
+            getDownloadURL(imageRef),
+            30000,
+            "Fetching the uploaded image URL timed out."
+          );
+
+          await updateDoc(writingTestDocRef, {
+            task1ImageUrl: resolvedTask1ImageUrl,
+            updatedAt: serverTimestamp(),
+            sections: [
+              {
+                id: "task-1",
+                label: "Writing Task 1",
+                prompt: writingTestForm.part1Prompt,
+                imageUrl: resolvedTask1ImageUrl,
+                imagePath: task1ImagePath,
+                minimumWords: 150,
+                recommendedMinutes: 20,
+              },
+              {
+                id: "task-2",
+                label: "Writing Task 2",
+                prompt: writingTestForm.part2Prompt,
+                minimumWords: 250,
+                recommendedMinutes: 40,
+              },
+            ],
+          });
+
+          nextNotice = "Test saved.";
+        } catch (uploadError) {
+          console.error("[Creator] Task 1 image upload failed:", uploadError);
+          nextNotice =
+            "The test was saved, but the image upload did not complete.";
+        }
+      }
+
       setWritingTests((currentTests) => [
         {
           ...nextTest,
           createdAt: new Date().toISOString(),
+          task1ImageUrl:
+            resolvedTask1ImageUrl || selectedPart1ImagePreviewUrl || "",
         },
-        ...currentTests,
+        ...currentTests.filter((test) => test.id !== writingTestDocRef.id),
       ]);
+      setWritingTestNotice(nextNotice);
       setIsWritingTestComposerOpen(false);
+      setEditingWritingTestId("");
     } catch (error) {
       console.error("[Creator] Failed to save writing test:", error);
-      setWritingTestError("Failed to save writing test.");
+      setWritingTestError(
+        error?.message || "Failed to save writing test."
+      );
     } finally {
       setIsSavingWritingTest(false);
     }
@@ -798,26 +908,38 @@ export default function CreatorPage() {
                     onImageChange={handleWritingTestImageChange}
                     onSave={handleSaveWritingTest}
                   />
-                ) : null}
-
-                {writingTests.length > 0 ? (
-                  <div className="grid w-full max-w-5xl gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {writingTests.map((test) => (
-                      <WritingTestCard key={test.id} test={test} />
-                    ))}
-                  </div>
-                ) : isWritingTestsLoading ? (
-                  <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
-                    <p className="text-lg font-medium text-base-content/65">
-                      Loading writing tests...
-                    </p>
-                  </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
-                    <p className="text-lg font-medium text-base-content/65">
-                      No writing tests yet.
-                    </p>
-                  </div>
+                  <>
+                    {writingTestNotice ? (
+                      <div className="w-full max-w-5xl rounded-2xl border border-warning/30 bg-warning/10 px-5 py-4 text-sm font-medium text-warning-content">
+                        {writingTestNotice}
+                      </div>
+                    ) : null}
+
+                    {writingTests.length > 0 ? (
+                      <div className="grid w-full max-w-5xl gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {writingTests.map((test) => (
+                          <WritingTestCard
+                            key={test.id}
+                            test={test}
+                            onEdit={handleEditWritingTest}
+                          />
+                        ))}
+                      </div>
+                    ) : isWritingTestsLoading ? (
+                      <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+                        <p className="text-lg font-medium text-base-content/65">
+                          Loading writing tests...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">
+                        <p className="text-lg font-medium text-base-content/65">
+                          No writing tests yet.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
