@@ -6,7 +6,7 @@ const tfngOptions = ["TRUE", "FALSE", "NOT GIVEN"];
 const DEFAULT_LEFT_WIDTH = 60;
 const MIN_LEFT_WIDTH = 40;
 const MAX_LEFT_WIDTH = 70;
-const DIVIDER_WIDTH = 10;
+const DIVIDER_WIDTH = 6;
 
 function renderFillBlankQuestion(question, answer, onChange) {
   const hasBlank = question.question.includes("____");
@@ -141,18 +141,19 @@ export default function ReadingTestMode({ testData }) {
   useEffect(() => {
     const body = document.body;
     const previousBodyOverflow = body.style.overflow;
+    const previousBodyUserSelect = body.style.userSelect;
 
     body.style.overflow = "hidden";
 
     return () => {
       body.style.overflow = previousBodyOverflow;
+      body.style.userSelect = previousBodyUserSelect;
     };
   }, []);
 
   useEffect(() => {
     function stopResizing() {
       dragStateRef.current.isResizing = false;
-      document.body.style.cursor = "";
       document.body.style.userSelect = "";
     }
 
@@ -211,7 +212,6 @@ export default function ReadingTestMode({ testData }) {
 
   function startResizing(event) {
     dragStateRef.current.isResizing = true;
-    document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     event.preventDefault();
   }
@@ -233,7 +233,6 @@ export default function ReadingTestMode({ testData }) {
         flexDirection: "row",
         backgroundColor: "#111827",
         color: "hsl(var(--bc, 220 13% 91%))",
-        zIndex: 1000,
       }}
     >
       {hasSections ? (
@@ -303,8 +302,15 @@ export default function ReadingTestMode({ testData }) {
               height: "100%",
               flexShrink: 0,
               cursor: "col-resize",
-              backgroundColor: "#f59e0b",
+              backgroundColor: "#1d4ed8",
               boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.15)",
+              zIndex: 1,
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.backgroundColor = "#3b82f6";
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.backgroundColor = "#1d4ed8";
             }}
           />
 
