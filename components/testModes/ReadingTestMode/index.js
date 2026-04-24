@@ -133,42 +133,39 @@ function renderTableQuestion(question, answers, onChange) {
 export default function ReadingTestMode({ testData }) {
   const [answers, setAnswers] = useState({});
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
-  const containerRef = useRef(null);
-  const dragStateRef = useRef({
-    isResizing: false,
-  });
+  const [isDragging, setIsDragging] = useState(false);
+  const previousUserSelectRef = useRef("");
 
   useEffect(() => {
     const body = document.body;
     const previousBodyOverflow = body.style.overflow;
-    const previousBodyUserSelect = body.style.userSelect;
+    previousUserSelectRef.current = body.style.userSelect;
 
     body.style.overflow = "hidden";
 
     return () => {
       body.style.overflow = previousBodyOverflow;
-      body.style.userSelect = previousBodyUserSelect;
+      body.style.userSelect = previousUserSelectRef.current;
     };
   }, []);
 
   useEffect(() => {
-    function stopResizing() {
-      dragStateRef.current.isResizing = false;
-      document.body.style.userSelect = "";
+    function stopDragging() {
+      setIsDragging(false);
+      document.body.style.userSelect = previousUserSelectRef.current;
     }
 
-    function updateWidth(clientX) {
-      const container = containerRef.current;
-      if (!container) {
+    function handleMouseMove(event) {
+      if (!isDragging) {
         return;
       }
 
-      const { left, width } = container.getBoundingClientRect();
-      if (!width) {
+      const viewportWidth = window.innerWidth;
+      if (!viewportWidth) {
         return;
       }
 
-      const nextLeftWidth = ((clientX - left) / width) * 100;
+      const nextLeftWidth = (event.clientX / viewportWidth) * 100;
       const clampedLeftWidth = Math.min(
         MAX_LEFT_WIDTH,
         Math.max(MIN_LEFT_WIDTH, nextLeftWidth)
@@ -177,20 +174,12 @@ export default function ReadingTestMode({ testData }) {
       setLeftWidth(clampedLeftWidth);
     }
 
-    function handleMouseMove(event) {
-      if (!dragStateRef.current.isResizing) {
-        return;
-      }
-
-      updateWidth(event.clientX);
-    }
-
     function handleMouseUp() {
-      if (!dragStateRef.current.isResizing) {
+      if (!isDragging) {
         return;
       }
 
-      stopResizing();
+      stopDragging();
     }
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -199,9 +188,11 @@ export default function ReadingTestMode({ testData }) {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
-      stopResizing();
+      if (isDragging) {
+        document.body.style.userSelect = previousUserSelectRef.current;
+      }
     };
-  }, []);
+  }, [isDragging]);
 
   function updateAnswer(key, value) {
     setAnswers((current) => ({
@@ -211,7 +202,7 @@ export default function ReadingTestMode({ testData }) {
   }
 
   function startResizing(event) {
-    dragStateRef.current.isResizing = true;
+    setIsDragging(true);
     document.body.style.userSelect = "none";
     event.preventDefault();
   }
@@ -237,7 +228,6 @@ export default function ReadingTestMode({ testData }) {
     >
       {hasSections ? (
         <div
-          ref={containerRef}
           style={{
             width: "100%",
             height: "100%",
@@ -256,6 +246,7 @@ export default function ReadingTestMode({ testData }) {
               borderRight: "1px solid rgba(255, 255, 255, 0.12)",
               padding: "24px",
               flexShrink: 0,
+              cursor: "default",
             }}
           >
             <div className="space-y-8">
@@ -323,6 +314,7 @@ export default function ReadingTestMode({ testData }) {
               backgroundColor: "#374151",
               padding: "24px",
               flexShrink: 0,
+              cursor: "default",
             }}
           >
             <div className="space-y-8">
