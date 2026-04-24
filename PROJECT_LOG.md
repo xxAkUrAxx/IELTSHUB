@@ -71,3 +71,45 @@ Created folders:
 - Created main branch
 - Created feature branch:
   - feature/student-dashboard
+
+## Creator Dashboard Work - 2026-04-24
+
+- Restored Creator Dashboard sidebar navigation for:
+  - Mock Exams
+  - Practice Activity
+- Added expandable/collapsible submenu behavior with one open section at a time
+- Added section-based main content header with custom Creator `Create New` button styling
+- Kept Creator auth/role protection while removing old Firestore-driven card/test dashboard logic
+
+- Built Writing Test creator flow in Creator Dashboard
+- Added full-page in-dashboard Writing test editor instead of modal overlay
+- Added Task 1 editor with:
+  - fixed IELTS instructions
+  - editable task prompt
+  - image upload
+  - image preview
+- Added Task 2 editor with:
+  - fixed IELTS instructions
+  - editable task prompt
+- Added difficulty selector color logic:
+  - Easy = green
+  - Medium = yellow
+  - Hard = red
+
+- Connected Writing test save flow to Firebase
+- Saved Writing tests to grouped Firestore collection:
+  - `writingTests`
+- Uploaded Task 1 images to Firebase Storage using test-linked identifiers
+- Added Writing test cards in Creator Dashboard
+- Added:
+  - create test
+  - edit test
+  - delete test
+- Added delete confirmation prompt
+- Added temporary delete success message with auto-dismiss
+
+- Refactored shared test conventions into:
+  - `lib/tests/test-conventions.js`
+- Extracted Writing test persistence logic into:
+  - `lib/tests/writing-tests.js`
+- Switched image uploads to resumable Firebase Storage uploads with progress/status handling
