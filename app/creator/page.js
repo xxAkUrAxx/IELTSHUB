@@ -216,6 +216,28 @@ function getQuestionGroupFirstNumber(questionGroup) {
   return Number.isInteger(firstNumber) ? firstNumber : Number.POSITIVE_INFINITY;
 }
 
+function extractParagraphLabels(passageText) {
+  const matches = String(passageText || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .map((line) => {
+      const match = line.match(/^([A-Z])(?:[\.\)]|\s|$)/);
+      return match ? match[1] : "";
+    })
+    .filter(Boolean);
+
+  return [...new Set(matches)];
+}
+
+function createEmptyMatchingInformationQuestion(paragraphLabels = []) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    questionNumber: "",
+    prompt: "",
+    correctParagraph: paragraphLabels[0] || "",
+  };
+}
+
 function createEmptyReadingForm() {
   return {
     testName: "",
@@ -823,6 +845,9 @@ function ReadingTestPanel({
             const tfngQuestions = sectionQuestions.filter(
               (questionGroup) => questionGroup.type === "TFNG"
             );
+            const matchingInformationQuestions = sectionQuestions.filter(
+              (questionGroup) => questionGroup.type === "MATCHING_INFORMATION"
+            );
 
             return (
               <section
@@ -928,6 +953,46 @@ function ReadingTestPanel({
                       </div>
                     </div>
                   ) : null}
+
+                  {matchingInformationQuestions.length > 0 ? (
+                    <div className="space-y-4 rounded-2xl border border-base-300 bg-base-200/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">
+                          Matching Information (to paragraphs)
+                        </p>
+                        <div className="badge badge-outline">
+                          {matchingInformationQuestions.reduce(
+                            (count, group) =>
+                              count +
+                              (Array.isArray(group.items) ? group.items.length : 0),
+                            0
+                          )}{" "}
+                          questions
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {matchingInformationQuestions.map((questionGroup) =>
+                          questionGroup.items.map((item) => (
+                            <article
+                              key={item.id}
+                              className="rounded-xl border border-base-300 bg-base-100 p-4"
+                            >
+                              <p className="text-sm font-medium text-base-content/60">
+                                Question {item.questionNumber || "Unassigned"}
+                              </p>
+                              <p className="mt-2 leading-7">
+                                {item.prompt || "No question text added yet."}
+                              </p>
+                              <p className="mt-3 text-sm font-medium text-primary">
+                                Correct paragraph: {item.correctParagraph || "Not set"}
+                              </p>
+                            </article>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </section>
             );
@@ -948,6 +1013,155 @@ function ReadingTestPanel({
           </CreatorActionButton>
         </div>
       </section>
+  );
+}
+
+function MatchingInformationDialog({
+  sectionNumber,
+  questions,
+  paragraphLabels,
+  errorMessage,
+  onChangeQuestion,
+  onAddQuestion,
+  onRemoveQuestion,
+  onClose,
+  onSave,
+}) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-[2px]">
+      <section className="max-h-[calc(100vh-4rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+              Section {sectionNumber}
+            </p>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Matching Information
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            aria-label="Close matching information dialog"
+            onClick={onClose}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+            Use the paragraph letters already included in the reading passage. They will be matched to each question and saved exactly for future answer checking.
+          </div>
+
+          {questions.map((question, index) => (
+            <section
+              key={question.id}
+              className="mt-1 rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6"
+            >
+              <div className="mb-6 flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold">Question {index + 1}</h3>
+                {questions.length > 1 ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm text-error hover:bg-error/10"
+                    onClick={() => onRemoveQuestion(question.id)}
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="grid gap-6 pt-1">
+                <label className="form-control max-w-sm">
+                  <span className="label-text mb-2 font-medium text-white">
+                    Question Number
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="40"
+                    className={`${darkInputClassName} w-36 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                    placeholder="1-40"
+                    value={question.questionNumber}
+                    onChange={(event) =>
+                      onChangeQuestion(
+                        question.id,
+                        "questionNumber",
+                        event.target.value
+                      )
+                    }
+                  />
+                </label>
+
+                <label className="form-control">
+                  <span className="label-text mb-2 font-medium text-white">
+                    Question Text
+                  </span>
+                  <textarea
+                    className={`${darkTextareaClassName} min-h-32 w-full leading-7`}
+                    placeholder="Enter one matching information statement here."
+                    value={question.prompt}
+                    onChange={(event) =>
+                      onChangeQuestion(question.id, "prompt", event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="form-control max-w-sm">
+                  <span className="label-text mb-2 font-medium text-white">
+                    Correct Paragraph
+                  </span>
+                  <select
+                    className={`${darkSelectClassName} max-w-sm appearance-none`}
+                    style={{ backgroundColor: "#1b2a3a", color: "#ffffff" }}
+                    value={question.correctParagraph}
+                    onChange={(event) =>
+                      onChangeQuestion(
+                        question.id,
+                        "correctParagraph",
+                        event.target.value
+                      )
+                    }
+                  >
+                    {paragraphLabels.map((label) => (
+                      <option key={`${question.id}-${label}`} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+          ))}
+
+          <div className="pt-4">
+            <button
+              type="button"
+              className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+              onClick={onAddQuestion}
+            >
+              Add Another Question
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-3 px-6 py-5 md:px-7">
+          {errorMessage ? (
+            <p className="mr-auto self-center text-sm font-medium text-error">
+              {errorMessage}
+            </p>
+          ) : null}
+          <button type="button" className="btn px-5" onClick={onClose}>
+            Cancel
+          </button>
+          <CreatorActionButton onClick={onSave}>
+            Save Questions
+          </CreatorActionButton>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1154,6 +1368,14 @@ export default function CreatorPage() {
     createEmptyTfngQuestion(),
   ]);
   const [tfngDialogError, setTfngDialogError] = useState("");
+  const [isMatchingInformationDialogOpen, setIsMatchingInformationDialogOpen] =
+    useState(false);
+  const [matchingInformationDialogSectionNumber, setMatchingInformationDialogSectionNumber] =
+    useState(1);
+  const [matchingInformationDialogQuestions, setMatchingInformationDialogQuestions] =
+    useState([createEmptyMatchingInformationQuestion()]);
+  const [matchingInformationDialogError, setMatchingInformationDialogError] =
+    useState("");
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
   const [writingTests, setWritingTests] = useState([]);
   const [isWritingTestsLoading, setIsWritingTestsLoading] = useState(true);
@@ -1311,6 +1533,8 @@ export default function CreatorPage() {
     setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
     setIsTfngDialogOpen(false);
     setTfngDialogError("");
+    setIsMatchingInformationDialogOpen(false);
+    setMatchingInformationDialogError("");
     setEditingReadingTestId("");
   }
 
@@ -1351,6 +1575,39 @@ export default function CreatorPage() {
       return;
     }
 
+    if (questionType === "Matching Information (to paragraphs)") {
+      const paragraphLabels = extractParagraphLabels(
+        readingTestForm[`section${sectionNumber}Text`]
+      );
+
+      if (paragraphLabels.length === 0) {
+        setReadingQuestionTypeSelections((currentSelections) => ({
+          ...currentSelections,
+          [sectionNumber]: "",
+        }));
+        setReadingTestError(
+          "Add paragraph letters like A, B, C into the passage text first so matching information can target them."
+        );
+        return;
+      }
+
+      setMatchingInformationDialogSectionNumber(sectionNumber);
+      setMatchingInformationDialogQuestions([
+        {
+          ...createEmptyMatchingInformationQuestion(paragraphLabels),
+          questionNumber: getNextReadingQuestionNumber([], existingQuestionNumbers),
+        },
+      ]);
+      setMatchingInformationDialogError("");
+      setReadingTestError("");
+      setReadingQuestionTypeSelections((currentSelections) => ({
+        ...currentSelections,
+        [sectionNumber]: "",
+      }));
+      setIsMatchingInformationDialogOpen(true);
+      return;
+    }
+
     setReadingQuestionTypeSelections((currentSelections) => ({
       ...currentSelections,
       [sectionNumber]: "",
@@ -1372,6 +1629,11 @@ export default function CreatorPage() {
   function handleCloseTfngDialog() {
     setIsTfngDialogOpen(false);
     setTfngDialogError("");
+  }
+
+  function handleCloseMatchingInformationDialog() {
+    setIsMatchingInformationDialogOpen(false);
+    setMatchingInformationDialogError("");
   }
 
   function handleAddTfngQuestion() {
@@ -1405,6 +1667,54 @@ export default function CreatorPage() {
   function handleRemoveTfngQuestion(questionId) {
     setTfngDialogQuestions((currentQuestions) =>
       currentQuestions.filter((question) => question.id !== questionId)
+    );
+  }
+
+  function handleAddMatchingInformationQuestion() {
+    const sectionQuestionsField = `section${matchingInformationDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+    const paragraphLabels = extractParagraphLabels(
+      readingTestForm[`section${matchingInformationDialogSectionNumber}Text`]
+    );
+
+    setMatchingInformationDialogQuestions((currentQuestions) => [
+      ...currentQuestions,
+      {
+        ...createEmptyMatchingInformationQuestion(paragraphLabels),
+        questionNumber: getNextReadingQuestionNumber(
+          currentQuestions,
+          existingQuestionNumbers
+        ),
+      },
+    ]);
+  }
+
+  function handleRemoveMatchingInformationQuestion(questionId) {
+    setMatchingInformationDialogQuestions((currentQuestions) =>
+      currentQuestions.filter((question) => question.id !== questionId)
+    );
+  }
+
+  function handleChangeMatchingInformationQuestion(questionId, field, value) {
+    setMatchingInformationDialogQuestions((currentQuestions) =>
+      currentQuestions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              [field]: value,
+            }
+          : question
+      )
     );
   }
 
@@ -1515,6 +1825,95 @@ export default function CreatorPage() {
     }));
     setTfngDialogError("");
     setIsTfngDialogOpen(false);
+    setReadingTestError("");
+  }
+
+  function handleSaveMatchingInformationQuestions() {
+    const normalizedNumbers = matchingInformationDialogQuestions.map((question) =>
+      String(question.questionNumber).trim()
+    );
+    const sectionQuestionsField = `section${matchingInformationDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+
+    if (
+      matchingInformationDialogQuestions.some(
+        (question) =>
+          !String(question.questionNumber).trim() ||
+          !question.prompt.trim() ||
+          !question.correctParagraph
+      )
+    ) {
+      setMatchingInformationDialogError(
+        "Each matching information question needs a number, text, and correct paragraph."
+      );
+      return;
+    }
+
+    if (new Set(normalizedNumbers).size !== normalizedNumbers.length) {
+      setMatchingInformationDialogError(
+        "Each matching information question number must be unique."
+      );
+      return;
+    }
+
+    if (
+      matchingInformationDialogQuestions.some((question) => {
+        const questionNumber = Number(question.questionNumber);
+        return !Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > 40;
+      })
+    ) {
+      setMatchingInformationDialogError("Question numbers must be between 1 and 40.");
+      return;
+    }
+
+    if (
+      normalizedNumbers.some((questionNumber) =>
+        existingQuestionNumbers.includes(questionNumber)
+      )
+    ) {
+      setMatchingInformationDialogError(
+        "One or more question numbers are already used in this section."
+      );
+      return;
+    }
+
+    const newQuestionGroup = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: "MATCHING_INFORMATION",
+      title: "Matching Information (to paragraphs)",
+      items: matchingInformationDialogQuestions.map((question) => ({
+        ...question,
+        questionNumber: String(question.questionNumber).trim(),
+        prompt: question.prompt.trim(),
+        correctParagraph: question.correctParagraph.trim(),
+      })),
+    };
+
+    setReadingTestForm((currentForm) => ({
+      ...currentForm,
+      [sectionQuestionsField]: [
+        ...(Array.isArray(currentForm[sectionQuestionsField])
+          ? currentForm[sectionQuestionsField]
+          : []),
+        newQuestionGroup,
+      ].sort(
+        (leftGroup, rightGroup) =>
+          getQuestionGroupFirstNumber(leftGroup) -
+          getQuestionGroupFirstNumber(rightGroup)
+      ),
+    }));
+    setMatchingInformationDialogError("");
+    setIsMatchingInformationDialogOpen(false);
     setReadingTestError("");
   }
 
@@ -1834,6 +2233,24 @@ export default function CreatorPage() {
               onRemoveQuestion={handleRemoveTfngQuestion}
               onClose={handleCloseTfngDialog}
               onSave={handleSaveTfngQuestions}
+            />
+          ) : null}
+
+          {isMatchingInformationDialogOpen ? (
+            <MatchingInformationDialog
+              sectionNumber={matchingInformationDialogSectionNumber}
+              questions={matchingInformationDialogQuestions}
+              paragraphLabels={extractParagraphLabels(
+                readingTestForm[
+                  `section${matchingInformationDialogSectionNumber}Text`
+                ]
+              )}
+              errorMessage={matchingInformationDialogError}
+              onChangeQuestion={handleChangeMatchingInformationQuestion}
+              onAddQuestion={handleAddMatchingInformationQuestion}
+              onRemoveQuestion={handleRemoveMatchingInformationQuestion}
+              onClose={handleCloseMatchingInformationDialog}
+              onSave={handleSaveMatchingInformationQuestions}
             />
           ) : null}
 

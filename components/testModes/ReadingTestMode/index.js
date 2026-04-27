@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const tfngOptions = ["TRUE", "FALSE", "NOT GIVEN"];
+const paragraphLetterPattern = /^([A-Z])(?:[\.\)]|\s|$)/;
 const DEFAULT_LEFT_WIDTH = 60;
 const MIN_LEFT_WIDTH = 40;
 const MAX_LEFT_WIDTH = 70;
@@ -128,6 +129,91 @@ function renderTableQuestion(question, answers, onChange) {
       </div>
     </div>
   );
+}
+
+function renderMatchingInformationQuestion(question, answers, onChange) {
+  return (
+    <div className="mb-6 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+      <p className="mb-2 text-sm font-medium text-base-content/60">
+        {question.questionRange
+          ? `Questions ${question.questionRange}`
+          : "Matching Information"}
+      </p>
+      {question.instructions ? (
+        <p className="mb-4 text-base leading-7 text-base-content">
+          {question.instructions}
+        </p>
+      ) : null}
+
+      <div className="space-y-4">
+        {question.questions.map((item, index) => (
+          <div
+            key={`matching-information-${item.number || index}`}
+            className="rounded-xl border border-base-300 bg-base-200/40 p-4"
+          >
+            <p className="mb-3 text-sm font-medium text-base-content/70">
+              {item.number ? `${item.number}. ` : ""}
+              {item.question}
+            </p>
+            <input
+              type="text"
+              value={answers[item.number || index] || ""}
+              onChange={(event) =>
+                onChange(item.number || index, event.target.value.toUpperCase())
+              }
+              className="input input-bordered w-28 uppercase"
+              placeholder="A"
+              maxLength={2}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderPassageParagraphs(passage) {
+  return String(passage || "")
+    .split(/\n\s*\n/)
+    .filter((paragraph) => paragraph.trim().length > 0)
+    .map((paragraph, index) => {
+      const trimmedParagraph = paragraph.trim();
+      const lines = trimmedParagraph.split(/\r?\n/);
+      const firstLine = lines[0]?.trim() || "";
+      const match = firstLine.match(paragraphLetterPattern);
+
+      if (!match) {
+        return (
+          <p
+            key={`passage-paragraph-${index}`}
+            className="whitespace-pre-line text-base leading-8 text-base-content"
+          >
+            {trimmedParagraph}
+          </p>
+        );
+      }
+
+      const letter = match[1];
+      const normalizedFirstLine = firstLine.replace(paragraphLetterPattern, "").trim();
+      const remainingLines = lines.slice(1).join("\n").trim();
+      const paragraphBody = [normalizedFirstLine, remainingLines]
+        .filter(Boolean)
+        .join("\n");
+
+      return (
+        <article
+          key={`passage-paragraph-${index}`}
+          className="rounded-2xl border border-base-300 bg-base-200/20 p-5"
+        >
+          <p className="mb-3 text-2xl font-black uppercase tracking-[0.22em] text-[#1b2ea8]">
+            {letter}
+          </p>
+          <p className="whitespace-pre-line text-base leading-8 text-base-content">
+            {paragraphBody}
+          </p>
+        </article>
+      );
+    });
 }
 
 export default function ReadingTestMode({ testData }) {
@@ -272,8 +358,8 @@ export default function ReadingTestMode({ testData }) {
                       {section.title}
                     </h2>
                   ) : null}
-                  <div className="mt-6 whitespace-pre-line text-base leading-8 text-base-content">
-                    {section.passage}
+                  <div className="mt-6 space-y-4">
+                    {renderPassageParagraphs(section.passage)}
                   </div>
                 </article>
               ))}
@@ -344,6 +430,21 @@ export default function ReadingTestMode({ testData }) {
                       return (
                         <div key={`question-${sectionIndex}-${questionIndex}`}>
                           {renderTfngGroup(question, answers, updateAnswer)}
+                        </div>
+                      );
+                    }
+
+                    if (
+                      question.type === "MATCHING_INFORMATION" &&
+                      Array.isArray(question.questions)
+                    ) {
+                      return (
+                        <div key={`question-${sectionIndex}-${questionIndex}`}>
+                          {renderMatchingInformationQuestion(
+                            question,
+                            answers,
+                            updateAnswer
+                          )}
                         </div>
                       );
                     }
