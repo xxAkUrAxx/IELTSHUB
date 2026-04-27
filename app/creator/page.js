@@ -225,6 +225,55 @@ function getQuestionGroupFirstNumber(questionGroup) {
   return Number.isInteger(firstNumber) ? firstNumber : Number.POSITIVE_INFINITY;
 }
 
+function sortQuestionItemsByNumber(items = []) {
+  return [...items].sort((leftItem, rightItem) => {
+    const leftNumber = Number(leftItem?.questionNumber);
+    const rightNumber = Number(rightItem?.questionNumber);
+
+    if (!Number.isInteger(leftNumber) && !Number.isInteger(rightNumber)) {
+      return 0;
+    }
+
+    if (!Number.isInteger(leftNumber)) {
+      return 1;
+    }
+
+    if (!Number.isInteger(rightNumber)) {
+      return -1;
+    }
+
+    return leftNumber - rightNumber;
+  });
+}
+
+function flattenSectionQuestionItems(questionGroups = []) {
+  return questionGroups.flatMap((questionGroup) => {
+    const sortedItems = sortQuestionItemsByNumber(questionGroup.items);
+
+    return sortedItems.map((item) => ({
+      ...item,
+      groupId: questionGroup.id,
+      questionType: questionGroup.type,
+      questionTypeTitle:
+        questionGroup.type === "TFNG"
+          ? "True / False / Not Given"
+          : questionGroup.type === "MATCHING_INFORMATION"
+            ? "Matching Information"
+            : questionGroup.type === "SUMMARY_COMPLETION"
+              ? "Summary Completion"
+              : questionGroup.type === "MULTIPLE_CHOICE"
+                ? "Multiple Choice"
+                : "Question",
+      sourceText:
+        questionGroup.type === "SUMMARY_COMPLETION"
+          ? questionGroup.summaryText || ""
+          : questionGroup.type === "MULTIPLE_CHOICE"
+            ? questionGroup.sourceText || ""
+            : "",
+    }));
+  });
+}
+
 function extractParagraphLabels(passageText) {
   const matches = String(passageText || "")
     .split(/\r?\n/)
@@ -255,6 +304,81 @@ function parseSummaryCompletionQuestions(summaryText) {
     questionNumber: match[1],
     correctAnswer: "",
   }));
+}
+
+function parseMultipleChoiceQuestions(sourceText) {
+  const lines = String(sourceText || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const blocks = [];
+  let currentBlock = null;
+
+  lines.forEach((line) => {
+    const questionMatch = line.match(/^(\d+)[\.\)]?\s+(.+)$/);
+
+    if (questionMatch) {
+      if (currentBlock) {
+        blocks.push(currentBlock);
+      }
+
+      currentBlock = {
+        questionNumber: questionMatch[1],
+        promptLines: [questionMatch[2].trim()],
+        optionLines: [],
+      };
+      return;
+    }
+
+    if (!currentBlock) {
+      return;
+    }
+
+    const optionMatch = line.match(/^([A-D])[\.\)]?\s+(.+)$/i);
+
+    if (optionMatch) {
+      currentBlock.optionLines.push({
+        label: optionMatch[1].toUpperCase(),
+        text: optionMatch[2].trim(),
+      });
+      return;
+    }
+
+    if (currentBlock.optionLines.length === 0) {
+      currentBlock.promptLines.push(line);
+      return;
+    }
+
+    const lastOption = currentBlock.optionLines[currentBlock.optionLines.length - 1];
+    lastOption.text = `${lastOption.text} ${line}`.trim();
+  });
+
+  if (currentBlock) {
+    blocks.push(currentBlock);
+  }
+
+  return blocks.map((block, index) => ({
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    questionNumber: block.questionNumber,
+    prompt: block.promptLines.join(" ").trim(),
+    options: block.optionLines,
+    correctAnswer: "",
+  }));
+}
+
+function createEmptyMultipleChoiceQuestion() {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    questionNumber: "",
+    prompt: "",
+    options: [
+      { label: "A", text: "" },
+      { label: "B", text: "" },
+      { label: "C", text: "" },
+      { label: "D", text: "" },
+    ],
+    correctAnswer: "",
+  };
 }
 
 function getMatchingActivityLabel(activityType) {
@@ -418,6 +542,36 @@ function createReadingFormFromTest(test) {
                           question.id ||
                           `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                         questionNumber: String(question.number || ""),
+                        correctAnswer: question.correctAnswer || "",
+                      }))
+                    : [],
+                },
+              ];
+            }
+
+            if (questionGroup.type === "MULTIPLE_CHOICE") {
+              return [
+                {
+                  id:
+                    questionGroup.id ||
+                    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  type: "MULTIPLE_CHOICE",
+                  title: questionGroup.title || "Multiple Choice",
+                  instructions: questionGroup.instructions || "",
+                  sourceText: questionGroup.sourceText || "",
+                  items: Array.isArray(questionGroup.questions)
+                    ? questionGroup.questions.map((question) => ({
+                        id:
+                          question.id ||
+                          `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        questionNumber: String(question.number || ""),
+                        prompt: question.question || "",
+                        options: Array.isArray(question.options)
+                          ? question.options.map((option) => ({
+                              label: option.label || "",
+                              text: option.text || "",
+                            }))
+                          : [],
                         correctAnswer: question.correctAnswer || "",
                       }))
                     : [],
@@ -976,14 +1130,13 @@ function ReadingTestPanel({
             const sectionQuestions = Array.isArray(formValues[questionsField])
               ? formValues[questionsField]
               : [];
-            const tfngQuestions = sectionQuestions.filter(
-              (questionGroup) => questionGroup.type === "TFNG"
+            const sortedSectionQuestions = [...sectionQuestions].sort(
+              (leftGroup, rightGroup) =>
+                getQuestionGroupFirstNumber(leftGroup) -
+                getQuestionGroupFirstNumber(rightGroup)
             );
-            const matchingInformationQuestions = sectionQuestions.filter(
-              (questionGroup) => questionGroup.type === "MATCHING_INFORMATION"
-            );
-            const summaryCompletionQuestions = sectionQuestions.filter(
-              (questionGroup) => questionGroup.type === "SUMMARY_COMPLETION"
+            const orderedQuestionItems = sortQuestionItemsByNumber(
+              flattenSectionQuestionItems(sortedSectionQuestions)
             );
 
             return (
@@ -1085,207 +1238,110 @@ function ReadingTestPanel({
                     </label>
                   </div>
 
-                  {tfngQuestions.length > 0 ? (
+                  {orderedQuestionItems.length > 0 ? (
                     <div className="space-y-4 rounded-2xl border border-base-300 bg-base-200/20 p-4">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium">True / False / Not Given</p>
+                        <p className="font-medium">Saved Questions</p>
                         <div className="badge badge-outline">
-                          {tfngQuestions.reduce(
-                            (count, group) =>
-                              count +
-                              (Array.isArray(group.items) ? group.items.length : 0),
-                            0
-                          )}{" "}
+                          {orderedQuestionItems.length}{" "}
                           questions
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        {tfngQuestions.map((questionGroup) =>
-                          questionGroup.items.map((item) => (
-                            <article
-                              key={item.id}
-                              className="rounded-xl border border-base-300 bg-base-100 p-4"
-                            >
-                              <div className="flex items-start justify-between gap-4">
+                        {orderedQuestionItems.map((item) => (
+                          <article
+                            key={item.id}
+                            className="rounded-xl border border-base-300 bg-base-100 p-4"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
                                 <p className="text-sm font-medium text-base-content/60">
                                   Question {item.questionNumber || "Unassigned"}
                                 </p>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
-                                  aria-label={`Delete question ${item.questionNumber || ""}`}
-                                  onClick={() =>
-                                    setConfirmState({
-                                      type: "delete-question",
-                                      title: "Delete Question",
-                                      message: `Are you sure you want to delete Question ${
-                                        item.questionNumber || "?"
-                                      }?`,
-                                      confirmLabel: "Delete",
-                                      onConfirm: () => {
-                                        onDeleteReadingQuestionItem(
-                                          sectionNumber,
-                                          questionGroup.id,
-                                          item.id
-                                        );
-                                        setConfirmState(null);
-                                      },
-                                    })
-                                  }
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
+                                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-base-content/45">
+                                  {item.questionTypeTitle}
+                                </p>
                               </div>
-                              <p className="mt-2 leading-7">
-                                {item.prompt || "No question text added yet."}
-                              </p>
-                              <p className="mt-3 text-sm font-medium text-primary">
-                                {answerTypeOptions[item.answerType || "TFNG"]?.label ||
-                                  "T / F / NG"}{" "}
-                                : {item.correctAnswer}
-                              </p>
-                            </article>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                                aria-label={`Delete question ${item.questionNumber || ""}`}
+                                onClick={() =>
+                                  setConfirmState({
+                                    type: "delete-question",
+                                    title: "Delete Question",
+                                    message: `Are you sure you want to delete Question ${
+                                      item.questionNumber || "?"
+                                    }?`,
+                                    confirmLabel: "Delete",
+                                    onConfirm: () => {
+                                      onDeleteReadingQuestionItem(
+                                        sectionNumber,
+                                        item.groupId,
+                                        item.id
+                                      );
+                                      setConfirmState(null);
+                                    },
+                                  })
+                                }
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </div>
 
-                  {matchingInformationQuestions.length > 0 ? (
-                    <div className="space-y-4 rounded-2xl border border-base-300 bg-base-200/20 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium">
-                          Matching Information (to paragraphs)
-                        </p>
-                        <div className="badge badge-outline">
-                          {matchingInformationQuestions.reduce(
-                            (count, group) =>
-                              count +
-                              (Array.isArray(group.items) ? group.items.length : 0),
-                            0
-                          )}{" "}
-                          questions
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {matchingInformationQuestions.map((questionGroup) =>
-                          questionGroup.items.map((item) => (
-                            <article
-                              key={item.id}
-                              className="rounded-xl border border-base-300 bg-base-100 p-4"
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <p className="text-sm font-medium text-base-content/60">
-                                  Question {item.questionNumber || "Unassigned"}
+                            {item.questionType === "SUMMARY_COMPLETION" ? (
+                              <>
+                                <p className="mt-2 text-sm leading-7 text-base-content/70">
+                                  {item.sourceText
+                                    ? `${item.sourceText.slice(0, 180)}${
+                                        item.sourceText.length > 180 ? "..." : ""
+                                      }`
+                                    : "No summary text added yet."}
                                 </p>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
-                                    aria-label={`Delete question ${item.questionNumber || ""}`}
-                                    onClick={() =>
-                                      setConfirmState({
-                                        type: "delete-question",
-                                        title: "Delete Question",
-                                        message: `Are you sure you want to delete Question ${
-                                          item.questionNumber || "?"
-                                        }?`,
-                                        confirmLabel: "Delete",
-                                        onConfirm: () => {
-                                          onDeleteReadingQuestionItem(
-                                            sectionNumber,
-                                            questionGroup.id,
-                                            item.id
-                                          );
-                                          setConfirmState(null);
-                                        },
-                                      })
-                                    }
-                                  >
-                                    <TrashIcon className="h-4 w-4" />
-                                  </button>
+                                <p className="mt-3 text-sm font-medium text-primary">
+                                  Exact answer: {item.correctAnswer || "Not set"}
+                                </p>
+                              </>
+                            ) : item.questionType === "MULTIPLE_CHOICE" ? (
+                              <>
+                                <p className="mt-2 leading-7">
+                                  {item.prompt || "No question text added yet."}
+                                </p>
+                                <div className="mt-3 space-y-1 text-sm text-base-content/75">
+                                  {(Array.isArray(item.options) ? item.options : []).map((option) => (
+                                    <p key={`${item.id}-${option.label}`}>
+                                      {option.label}. {option.text}
+                                    </p>
+                                  ))}
                                 </div>
-                              </div>
-                              <p className="mt-2 leading-7">
-                                {item.prompt || "No question text added yet."}
-                              </p>
-                              <p className="mt-3 text-sm font-medium text-primary">
-                                Correct match: {item.correctAnswer || "Not set"}
-                              </p>
-                            </article>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {summaryCompletionQuestions.length > 0 ? (
-                    <div className="space-y-4 rounded-2xl border border-base-300 bg-base-200/20 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium">Summary Completion</p>
-                        <div className="badge badge-outline">
-                          {summaryCompletionQuestions.reduce(
-                            (count, group) =>
-                              count +
-                              (Array.isArray(group.items) ? group.items.length : 0),
-                            0
-                          )}{" "}
-                          questions
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {summaryCompletionQuestions.map((questionGroup) =>
-                          questionGroup.items.map((item) => (
-                            <article
-                              key={item.id}
-                              className="rounded-xl border border-base-300 bg-base-100 p-4"
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <p className="text-sm font-medium text-base-content/60">
-                                  Question {item.questionNumber || "Unassigned"}
+                                <p className="mt-3 text-sm font-medium text-primary">
+                                  Correct answer: {item.correctAnswer || "Not set"}
                                 </p>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
-                                  aria-label={`Delete question ${item.questionNumber || ""}`}
-                                  onClick={() =>
-                                    setConfirmState({
-                                      type: "delete-question",
-                                      title: "Delete Question",
-                                      message: `Are you sure you want to delete Question ${
-                                        item.questionNumber || "?"
-                                      }?`,
-                                      confirmLabel: "Delete",
-                                      onConfirm: () => {
-                                        onDeleteReadingQuestionItem(
-                                          sectionNumber,
-                                          questionGroup.id,
-                                          item.id
-                                        );
-                                        setConfirmState(null);
-                                      },
-                                    })
-                                  }
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
-                              </div>
-                              <p className="mt-2 text-sm leading-7 text-base-content/70">
-                                {questionGroup.summaryText
-                                  ? `${questionGroup.summaryText.slice(0, 180)}${
-                                      questionGroup.summaryText.length > 180 ? "..." : ""
-                                    }`
-                                  : "No summary text added yet."}
-                              </p>
-                              <p className="mt-3 text-sm font-medium text-primary">
-                                Exact answer: {item.correctAnswer || "Not set"}
-                              </p>
-                            </article>
-                          ))
-                        )}
+                              </>
+                            ) : item.questionType === "MATCHING_INFORMATION" ? (
+                              <>
+                                <p className="mt-2 leading-7">
+                                  {item.prompt || "No question text added yet."}
+                                </p>
+                                <p className="mt-3 text-sm font-medium text-primary">
+                                  Correct match: {item.correctAnswer || "Not set"}
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="mt-2 leading-7">
+                                  {item.prompt || "No question text added yet."}
+                                </p>
+                                <p className="mt-3 text-sm font-medium text-primary">
+                                  {answerTypeOptions[item.answerType || "TFNG"]?.label ||
+                                    "T / F / NG"}{" "}
+                                  : {item.correctAnswer}
+                                </p>
+                              </>
+                            )}
+                          </article>
+                        ))}
                       </div>
                     </div>
                   ) : null}
@@ -1987,6 +2043,224 @@ function SummaryCompletionDialog({
   );
 }
 
+function MultipleChoiceDialog({
+  sectionNumber,
+  instructions,
+  sourceText,
+  questions,
+  errorMessage,
+  onChangeInstructions,
+  onChangeText,
+  onAddQuestion,
+  onChangeQuestionField,
+  onChangeQuestionOption,
+  onChangeQuestionAnswer,
+  onClose,
+  onSave,
+}) {
+  const [isPortalReady, setIsPortalReady] = useState(false);
+
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  if (!isPortalReady) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "16px",
+        overflowY: "auto",
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+              Section {sectionNumber}
+            </p>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Multiple Choice
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            aria-label="Close multiple choice dialog"
+            onClick={onClose}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+            Paste the full IELTS multiple choice block once. The builder will detect the question number, question text, and A-D choices automatically so the teacher only needs to pick the correct answer.
+          </div>
+
+          <section className="rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+            <div className="grid gap-6">
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium text-white">
+                  Instructions
+                </span>
+                <textarea
+                  className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                  placeholder="Enter the instructions students should see."
+                  value={instructions}
+                  onChange={(event) => onChangeInstructions(event.target.value)}
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium text-white">
+                  Multiple Choice Text
+                </span>
+                <textarea
+                  className={`${darkTextareaClassName} min-h-72 w-full leading-7`}
+                  placeholder="Paste the multiple choice question block here."
+                  value={sourceText}
+                  onChange={(event) => onChangeText(event.target.value)}
+                />
+              </label>
+
+              <div className="rounded-2xl bg-[#0f1720] p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="font-medium text-white">Generated Questions</p>
+                  <div className="badge badge-outline">{questions.length} questions</div>
+                </div>
+
+                {questions.length > 0 ? (
+                  <div className="space-y-4">
+                    {questions.map((question) => (
+                      <div
+                        key={question.id}
+                        className="rounded-2xl border border-[#233447] bg-[#111a24] p-4"
+                      >
+                        <label className="form-control max-w-xs">
+                          <span className="label-text mb-3 font-medium text-white">
+                            Question Number
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="40"
+                            className={`${darkInputClassName} w-28 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                            value={question.questionNumber}
+                            onChange={(event) =>
+                              onChangeQuestionField(
+                                question.id,
+                                "questionNumber",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label className="form-control mt-4 block">
+                          <span className="label-text mb-3 font-medium text-white">
+                            Question Text
+                          </span>
+                          <textarea
+                            className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                            value={question.prompt}
+                            onChange={(event) =>
+                              onChangeQuestionField(
+                                question.id,
+                                "prompt",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </label>
+
+                        <div className="mt-4 space-y-3">
+                          {question.options.map((option) => (
+                            <div
+                              key={`${question.id}-${option.label}`}
+                              className="rounded-xl border border-[#233447] bg-[#18232f] px-5 py-4"
+                            >
+                              <div className="flex items-center gap-4">
+                                <input
+                                  type="radio"
+                                  name={`multiple-choice-${question.id}`}
+                                  className="radio radio-sm"
+                                  checked={question.correctAnswer === option.label}
+                                  onChange={() =>
+                                    onChangeQuestionAnswer(question.id, option.label)
+                                  }
+                                />
+                                <span className="font-semibold text-white">
+                                  {option.label}.
+                                </span>
+                                <input
+                                  type="text"
+                                  className={`${darkInputClassName} flex-1`}
+                                  value={option.text}
+                                  onChange={(event) =>
+                                    onChangeQuestionOption(
+                                      question.id,
+                                      option.label,
+                                      event.target.value
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-7 text-white/60">
+                    No multiple choice questions detected yet. Paste a numbered question followed by A, B, C, and D options to generate them.
+                  </p>
+                )}
+
+                <div className="pt-4">
+                  <button
+                    type="button"
+                    className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+                    onClick={onAddQuestion}
+                  >
+                    Add Another Question
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-3 px-6 py-5 md:px-7">
+          {errorMessage ? (
+            <p className="mr-auto self-center text-sm font-medium text-error">
+              {errorMessage}
+            </p>
+          ) : null}
+          <button type="button" className="btn px-5" onClick={onClose}>
+            Cancel
+          </button>
+          <CreatorActionButton onClick={onSave}>
+            Save Questions
+          </CreatorActionButton>
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -2034,6 +2308,18 @@ export default function CreatorPage() {
   const [summaryCompletionDialogQuestions, setSummaryCompletionDialogQuestions] =
     useState([]);
   const [summaryCompletionDialogError, setSummaryCompletionDialogError] =
+    useState("");
+  const [isMultipleChoiceDialogOpen, setIsMultipleChoiceDialogOpen] =
+    useState(false);
+  const [multipleChoiceDialogSectionNumber, setMultipleChoiceDialogSectionNumber] =
+    useState(1);
+  const [multipleChoiceDialogInstructions, setMultipleChoiceDialogInstructions] =
+    useState("");
+  const [multipleChoiceDialogText, setMultipleChoiceDialogText] =
+    useState("");
+  const [multipleChoiceDialogQuestions, setMultipleChoiceDialogQuestions] =
+    useState([]);
+  const [multipleChoiceDialogError, setMultipleChoiceDialogError] =
     useState("");
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
   const [writingTests, setWritingTests] = useState([]);
@@ -2202,6 +2488,11 @@ export default function CreatorPage() {
     setSummaryCompletionDialogText("");
     setSummaryCompletionDialogQuestions([]);
     setSummaryCompletionDialogError("");
+    setIsMultipleChoiceDialogOpen(false);
+    setMultipleChoiceDialogInstructions("");
+    setMultipleChoiceDialogText("");
+    setMultipleChoiceDialogQuestions([]);
+    setMultipleChoiceDialogError("");
     setEditingReadingTestId("");
   }
 
@@ -2239,6 +2530,21 @@ export default function CreatorPage() {
         [sectionNumber]: "",
       }));
       setIsTfngDialogOpen(true);
+      return;
+    }
+
+    if (questionType === "Multiple Choice") {
+      setMultipleChoiceDialogSectionNumber(sectionNumber);
+      setMultipleChoiceDialogInstructions("");
+      setMultipleChoiceDialogText("");
+      setMultipleChoiceDialogQuestions([]);
+      setMultipleChoiceDialogError("");
+      setReadingTestError("");
+      setReadingQuestionTypeSelections((currentSelections) => ({
+        ...currentSelections,
+        [sectionNumber]: "",
+      }));
+      setIsMultipleChoiceDialogOpen(true);
       return;
     }
 
@@ -2287,6 +2593,7 @@ export default function CreatorPage() {
     setIsTfngDialogOpen(false);
     setIsMatchingInformationDialogOpen(false);
     setIsSummaryCompletionDialogOpen(false);
+    setIsMultipleChoiceDialogOpen(false);
     setEditingReadingTestId(test.id);
     setReadingTestForm(createReadingFormFromTest(test));
     setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
@@ -2312,6 +2619,14 @@ export default function CreatorPage() {
     setSummaryCompletionDialogText("");
     setSummaryCompletionDialogQuestions([]);
     setSummaryCompletionDialogError("");
+  }
+
+  function handleCloseMultipleChoiceDialog() {
+    setIsMultipleChoiceDialogOpen(false);
+    setMultipleChoiceDialogInstructions("");
+    setMultipleChoiceDialogText("");
+    setMultipleChoiceDialogQuestions([]);
+    setMultipleChoiceDialogError("");
   }
 
   function syncMatchingInformationQuestions({
@@ -2443,6 +2758,111 @@ export default function CreatorPage() {
 
   function handleChangeSummaryCompletionQuestion(questionId, value) {
     setSummaryCompletionDialogQuestions((currentQuestions) =>
+      currentQuestions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              correctAnswer: value,
+            }
+          : question
+      )
+    );
+  }
+
+  function syncMultipleChoiceQuestions(sourceText, previousQuestions = []) {
+    const parsedQuestions = parseMultipleChoiceQuestions(sourceText);
+
+    setMultipleChoiceDialogQuestions(
+      parsedQuestions.map((question) => {
+        const matchingPreviousQuestion = previousQuestions.find(
+          (previousQuestion) =>
+            String(previousQuestion.questionNumber).trim() ===
+            String(question.questionNumber).trim()
+        );
+
+        return {
+          ...question,
+          id: matchingPreviousQuestion?.id || question.id,
+          correctAnswer: question.options.some(
+            (option) => option.label === matchingPreviousQuestion?.correctAnswer
+          )
+            ? matchingPreviousQuestion.correctAnswer
+            : "",
+        };
+      })
+    );
+  }
+
+  function handleChangeMultipleChoiceInstructions(value) {
+    setMultipleChoiceDialogInstructions(value);
+  }
+
+  function handleChangeMultipleChoiceText(value) {
+    setMultipleChoiceDialogText(value);
+    syncMultipleChoiceQuestions(value, multipleChoiceDialogQuestions);
+  }
+
+  function handleAddMultipleChoiceQuestion() {
+    const sectionQuestionsField = `section${multipleChoiceDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+
+    setMultipleChoiceDialogQuestions((currentQuestions) => [
+      ...currentQuestions,
+      {
+        ...createEmptyMultipleChoiceQuestion(),
+        questionNumber: getNextReadingQuestionNumber(
+          currentQuestions,
+          existingQuestionNumbers
+        ),
+      },
+    ]);
+  }
+
+  function handleChangeMultipleChoiceQuestionField(questionId, field, value) {
+    setMultipleChoiceDialogQuestions((currentQuestions) =>
+      currentQuestions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              [field]: value,
+            }
+          : question
+      )
+    );
+  }
+
+  function handleChangeMultipleChoiceQuestionOption(questionId, optionLabel, value) {
+    setMultipleChoiceDialogQuestions((currentQuestions) =>
+      currentQuestions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              options: question.options.map((option) =>
+                option.label === optionLabel
+                  ? {
+                      ...option,
+                      text: value,
+                    }
+                  : option
+              ),
+            }
+          : question
+      )
+    );
+  }
+
+  function handleChangeMultipleChoiceQuestionAnswer(questionId, value) {
+    setMultipleChoiceDialogQuestions((currentQuestions) =>
       currentQuestions.map((question) =>
         question.id === questionId
           ? {
@@ -2800,6 +3220,118 @@ export default function CreatorPage() {
     setReadingTestError("");
   }
 
+  function handleSaveMultipleChoiceQuestions() {
+    const normalizedNumbers = multipleChoiceDialogQuestions.map((question) =>
+      String(question.questionNumber).trim()
+    );
+    const sectionQuestionsField = `section${multipleChoiceDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+
+    if (!multipleChoiceDialogText.trim()) {
+      setMultipleChoiceDialogError("Paste the multiple choice text before saving.");
+      return;
+    }
+
+    if (multipleChoiceDialogQuestions.length === 0) {
+      setMultipleChoiceDialogError(
+        "No multiple choice questions were detected from the pasted text."
+      );
+      return;
+    }
+
+    if (
+      multipleChoiceDialogQuestions.some(
+        (question) =>
+          !String(question.questionNumber).trim() ||
+          !question.prompt.trim() ||
+          !Array.isArray(question.options) ||
+          question.options.filter((option) => String(option.text).trim()).length < 2 ||
+          !String(question.correctAnswer).trim()
+      )
+    ) {
+      setMultipleChoiceDialogError(
+        "Each multiple choice question needs a number, prompt, at least two options, and one selected correct answer."
+      );
+      return;
+    }
+
+    if (new Set(normalizedNumbers).size !== normalizedNumbers.length) {
+      setMultipleChoiceDialogError("Each multiple choice question number must be unique.");
+      return;
+    }
+
+    if (
+      multipleChoiceDialogQuestions.some((question) => {
+        const questionNumber = Number(question.questionNumber);
+        return !Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > 40;
+      })
+    ) {
+      setMultipleChoiceDialogError("Question numbers must be between 1 and 40.");
+      return;
+    }
+
+    if (
+      normalizedNumbers.some((questionNumber) =>
+        existingQuestionNumbers.includes(questionNumber)
+      )
+    ) {
+      setMultipleChoiceDialogError(
+        "One or more question numbers are already used in this section."
+      );
+      return;
+    }
+
+    const newQuestionGroup = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: "MULTIPLE_CHOICE",
+      title: "Multiple Choice",
+      instructions: multipleChoiceDialogInstructions.trim(),
+      sourceText: multipleChoiceDialogText,
+      items: multipleChoiceDialogQuestions.map((question) => ({
+        ...question,
+        questionNumber: String(question.questionNumber).trim(),
+        prompt: question.prompt.trim(),
+        correctAnswer: String(question.correctAnswer).trim(),
+        options: question.options
+          .filter((option) => String(option.text).trim())
+          .map((option) => ({
+            label: option.label,
+            text: option.text.trim(),
+          })),
+      })),
+    };
+
+    setReadingTestForm((currentForm) => ({
+      ...currentForm,
+      [sectionQuestionsField]: [
+        ...(Array.isArray(currentForm[sectionQuestionsField])
+          ? currentForm[sectionQuestionsField]
+          : []),
+        newQuestionGroup,
+      ].sort(
+        (leftGroup, rightGroup) =>
+          getQuestionGroupFirstNumber(leftGroup) -
+          getQuestionGroupFirstNumber(rightGroup)
+      ),
+    }));
+    setMultipleChoiceDialogInstructions("");
+    setMultipleChoiceDialogText("");
+    setMultipleChoiceDialogQuestions([]);
+    setMultipleChoiceDialogError("");
+    setIsMultipleChoiceDialogOpen(false);
+    setReadingTestError("");
+  }
+
   async function handleSaveReadingTest() {
     if (isSavingReadingTest) {
       return;
@@ -3149,6 +3681,24 @@ export default function CreatorPage() {
               onChangeQuestion={handleChangeSummaryCompletionQuestion}
               onClose={handleCloseSummaryCompletionDialog}
               onSave={handleSaveSummaryCompletionQuestions}
+            />
+          ) : null}
+
+          {isMultipleChoiceDialogOpen ? (
+            <MultipleChoiceDialog
+              sectionNumber={multipleChoiceDialogSectionNumber}
+              instructions={multipleChoiceDialogInstructions}
+              sourceText={multipleChoiceDialogText}
+              questions={multipleChoiceDialogQuestions}
+              errorMessage={multipleChoiceDialogError}
+              onChangeInstructions={handleChangeMultipleChoiceInstructions}
+              onChangeText={handleChangeMultipleChoiceText}
+              onAddQuestion={handleAddMultipleChoiceQuestion}
+              onChangeQuestionField={handleChangeMultipleChoiceQuestionField}
+              onChangeQuestionOption={handleChangeMultipleChoiceQuestionOption}
+              onChangeQuestionAnswer={handleChangeMultipleChoiceQuestionAnswer}
+              onClose={handleCloseMultipleChoiceDialog}
+              onSave={handleSaveMultipleChoiceQuestions}
             />
           ) : null}
 
