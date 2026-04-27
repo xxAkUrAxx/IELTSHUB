@@ -207,6 +207,15 @@ function getNextReadingQuestionNumber(questions, existingQuestionNumbers = []) {
   return String(Math.min(40, highestQuestionNumber + 1));
 }
 
+function getQuestionGroupFirstNumber(questionGroup) {
+  if (!Array.isArray(questionGroup?.items) || questionGroup.items.length === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const firstNumber = Number(questionGroup.items[0]?.questionNumber);
+  return Number.isInteger(firstNumber) ? firstNumber : Number.POSITIVE_INFINITY;
+}
+
 function createEmptyReadingForm() {
   return {
     testName: "",
@@ -218,6 +227,14 @@ function createEmptyReadingForm() {
     section2Questions: [],
     section3Text: "",
     section3Questions: [],
+  };
+}
+
+function createEmptyReadingQuestionTypeSelections() {
+  return {
+    1: "",
+    2: "",
+    3: "",
   };
 }
 
@@ -710,6 +727,7 @@ function WritingTestPanel({
 
 function ReadingTestPanel({
   formValues,
+  questionTypeSelections,
   isSidebarCollapsed,
   isSaving,
   errorMessage,
@@ -845,7 +863,7 @@ function ReadingTestPanel({
                       </span>
                       <select
                         className={`${darkSelectClassName} max-w-md font-medium`}
-                        defaultValue=""
+                        value={questionTypeSelections[sectionNumber] || ""}
                         onChange={(event) => {
                           const nextQuestionType = event.target.value;
 
@@ -854,7 +872,6 @@ function ReadingTestPanel({
                           }
 
                           onAddQuestionType(sectionNumber, nextQuestionType);
-                          event.target.value = "";
                         }}
                       >
                         <option value="" disabled>
@@ -937,7 +954,6 @@ function ReadingTestPanel({
 function TfngQuestionDialog({
   sectionNumber,
   questions,
-  existingQuestionNumbers,
   errorMessage,
   onChangeQuestion,
   onAddQuestion,
@@ -969,14 +985,14 @@ function TfngQuestionDialog({
         </div>
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
-          <div className="rounded-2xl border border-[#31465d] bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
             Add one or more TFNG questions for this section. Each question should use a reading test question number from 1 to 40 and one correct answer.
           </div>
 
           {questions.map((question, index) => (
             <section
               key={question.id}
-              className="rounded-2xl border border-[#31465d] bg-[#111a24] p-5 shadow-sm md:p-6"
+              className="mt-1 rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6"
             >
               <div className="mb-6 flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold">
@@ -993,7 +1009,7 @@ function TfngQuestionDialog({
                 ) : null}
               </div>
 
-              <div className="grid gap-6">
+              <div className="grid gap-6 pt-1">
                 <label className="form-control max-w-sm">
                   <span className="label-text mb-2 font-medium text-white">
                     Select Answer Type
@@ -1087,7 +1103,7 @@ function TfngQuestionDialog({
             </section>
           ))}
 
-          <div className="pt-2">
+          <div className="pt-4">
             <button
               type="button"
               className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
@@ -1098,7 +1114,7 @@ function TfngQuestionDialog({
           </div>
         </div>
 
-        <div className="mt-2 flex justify-end gap-3 border-t border-[#233447] px-6 py-5 md:px-7">
+        <div className="mt-4 flex justify-end gap-3 px-6 py-5 md:px-7">
           {errorMessage ? (
             <p className="mr-auto self-center text-sm font-medium text-error">
               {errorMessage}
@@ -1130,6 +1146,8 @@ export default function CreatorPage() {
   const [readingTestNotice, setReadingTestNotice] = useState("");
   const [editingReadingTestId, setEditingReadingTestId] = useState("");
   const [readingTestForm, setReadingTestForm] = useState(createEmptyReadingForm);
+  const [readingQuestionTypeSelections, setReadingQuestionTypeSelections] =
+    useState(createEmptyReadingQuestionTypeSelections);
   const [isTfngDialogOpen, setIsTfngDialogOpen] = useState(false);
   const [tfngDialogSectionNumber, setTfngDialogSectionNumber] = useState(1);
   const [tfngDialogQuestions, setTfngDialogQuestions] = useState([
@@ -1230,6 +1248,7 @@ export default function CreatorPage() {
       setReadingTestNotice("");
       setEditingReadingTestId("");
       setReadingTestForm(createEmptyReadingForm());
+      setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
       setIsReadingTestComposerOpen(true);
       return;
     }
@@ -1289,12 +1308,18 @@ export default function CreatorPage() {
     setIsReadingTestComposerOpen(false);
     setReadingTestError("");
     setReadingTestNotice("");
+    setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
     setIsTfngDialogOpen(false);
     setTfngDialogError("");
     setEditingReadingTestId("");
   }
 
   function handleAddReadingQuestionType(sectionNumber, questionType) {
+    setReadingQuestionTypeSelections((currentSelections) => ({
+      ...currentSelections,
+      [sectionNumber]: questionType,
+    }));
+
     const sectionQuestionsField = `section${sectionNumber}Questions`;
     const existingSectionQuestions = Array.isArray(
       readingTestForm[sectionQuestionsField]
@@ -1308,25 +1333,28 @@ export default function CreatorPage() {
           : []
     );
 
-    if (
-      questionType === "True / False / Not Given (or Yes / No / Not Given)" ||
-      questionType === "Multiple Choice"
-    ) {
+    if (questionType === "True / False / Not Given (or Yes / No / Not Given)") {
       setTfngDialogSectionNumber(sectionNumber);
       setTfngDialogQuestions([
         {
-          ...createEmptyTfngQuestion(
-            questionType === "Multiple Choice" ? "YNNG" : "TFNG"
-          ),
+          ...createEmptyTfngQuestion("TFNG"),
           questionNumber: getNextReadingQuestionNumber([], existingQuestionNumbers),
         },
       ]);
       setTfngDialogError("");
       setReadingTestError("");
+      setReadingQuestionTypeSelections((currentSelections) => ({
+        ...currentSelections,
+        [sectionNumber]: "",
+      }));
       setIsTfngDialogOpen(true);
       return;
     }
 
+    setReadingQuestionTypeSelections((currentSelections) => ({
+      ...currentSelections,
+      [sectionNumber]: "",
+    }));
     setReadingTestError(`${questionType} builder is not available yet.`);
   }
 
@@ -1337,6 +1365,7 @@ export default function CreatorPage() {
     setIsTfngDialogOpen(false);
     setEditingReadingTestId(test.id);
     setReadingTestForm(createReadingFormFromTest(test));
+    setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
     setIsReadingTestComposerOpen(true);
   }
 
@@ -1478,7 +1507,11 @@ export default function CreatorPage() {
           ? currentForm[sectionQuestionsField]
           : []),
         newQuestionGroup,
-      ],
+      ].sort(
+        (leftGroup, rightGroup) =>
+          getQuestionGroupFirstNumber(leftGroup) -
+          getQuestionGroupFirstNumber(rightGroup)
+      ),
     }));
     setTfngDialogError("");
     setIsTfngDialogOpen(false);
@@ -1795,19 +1828,6 @@ export default function CreatorPage() {
             <TfngQuestionDialog
               sectionNumber={tfngDialogSectionNumber}
               questions={tfngDialogQuestions}
-              existingQuestionNumbers={Array.isArray(
-                readingTestForm[`section${tfngDialogSectionNumber}Questions`]
-              )
-                ? readingTestForm[
-                    `section${tfngDialogSectionNumber}Questions`
-                  ].flatMap((questionGroup) =>
-                    Array.isArray(questionGroup.items)
-                      ? questionGroup.items.map((item) =>
-                          String(item.questionNumber).trim()
-                        )
-                      : []
-                  )
-                : []}
               errorMessage={tfngDialogError}
               onChangeQuestion={handleChangeTfngQuestion}
               onAddQuestion={handleAddTfngQuestion}
@@ -1834,6 +1854,7 @@ export default function CreatorPage() {
                 {isReadingTestComposerOpen ? (
                   <ReadingTestPanel
                     formValues={readingTestForm}
+                    questionTypeSelections={readingQuestionTypeSelections}
                     isSidebarCollapsed={isCollapsed}
                     isSaving={isSavingReadingTest}
                     errorMessage={readingTestError}
