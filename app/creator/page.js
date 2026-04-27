@@ -172,15 +172,39 @@ const readingQuestionTypes = [
   "Short Answer Questions",
 ];
 
-const tfngAnswerOptions = ["TRUE", "FALSE", "NOT GIVEN"];
+const answerTypeOptions = {
+  TFNG: {
+    label: "T / F / NG",
+    values: ["TRUE", "FALSE", "NOT GIVEN"],
+  },
+  YNNG: {
+    label: "Y / N / NG",
+    values: ["YES", "NO", "NOT GIVEN"],
+  },
+};
 
-function createEmptyTfngQuestion() {
+function createEmptyTfngQuestion(answerType = "TFNG") {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    answerType,
     questionNumber: "",
     prompt: "",
-    correctAnswer: "TRUE",
+    correctAnswer: answerTypeOptions[answerType]?.values?.[0] || "TRUE",
   };
+}
+
+function getNextReadingQuestionNumber(questions, existingQuestionNumbers = []) {
+  const allNumbers = [
+    ...existingQuestionNumbers,
+    ...questions.map((question) => Number(question.questionNumber)),
+  ].filter((value) => Number.isInteger(value) && value >= 1 && value <= 40);
+
+  if (allNumbers.length === 0) {
+    return "1";
+  }
+
+  const highestQuestionNumber = Math.max(...allNumbers);
+  return String(Math.min(40, highestQuestionNumber + 1));
 }
 
 function createEmptyReadingForm() {
@@ -231,9 +255,13 @@ function createReadingFormFromTest(test) {
                   id:
                     question.id ||
                     `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  answerType: question.answerType || "TFNG",
                   questionNumber: String(question.number || ""),
                   prompt: question.question || "",
-                  correctAnswer: question.correctAnswer || "TRUE",
+                  correctAnswer:
+                    question.correctAnswer ||
+                    answerTypeOptions[question.answerType || "TFNG"]?.values?.[0] ||
+                    "TRUE",
                 }))
               : [],
           }))
@@ -344,6 +372,13 @@ function CreatorActionButton({ onClick, children }) {
     </button>
   );
 }
+
+const darkSelectClassName =
+  "select w-full border-[#233447] bg-[#1b2a3a] px-4 text-white focus:border-[#3b5168] focus:outline-none";
+const darkInputClassName =
+  "input border-[#233447] bg-[#1b2a3a] px-4 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none";
+const darkTextareaClassName =
+  "textarea border-[#233447] bg-[#1b2a3a] px-4 py-3 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none";
 
 function WritingTestCard({ test, onDelete, onEdit }) {
   return (
@@ -809,12 +844,7 @@ function ReadingTestPanel({
                         Select question type for section {sectionNumber}
                       </span>
                       <select
-                        className="select w-full border-[#233447] bg-[#1b2a3a] font-medium text-white"
-                        style={{
-                          borderColor: "#233447",
-                          backgroundColor: "#1b2a3a",
-                          color: "#ffffff",
-                        }}
+                        className={`${darkSelectClassName} max-w-md font-medium`}
                         defaultValue=""
                         onChange={(event) => {
                           const nextQuestionType = event.target.value;
@@ -871,7 +901,9 @@ function ReadingTestPanel({
                                 {item.prompt || "No question text added yet."}
                               </p>
                               <p className="mt-3 text-sm font-medium text-primary">
-                                Correct answer: {item.correctAnswer}
+                                {answerTypeOptions[item.answerType || "TFNG"]?.label ||
+                                  "T / F / NG"}{" "}
+                                : {item.correctAnswer}
                               </p>
                             </article>
                           ))
@@ -905,6 +937,7 @@ function ReadingTestPanel({
 function TfngQuestionDialog({
   sectionNumber,
   questions,
+  existingQuestionNumbers,
   errorMessage,
   onChangeQuestion,
   onAddQuestion,
@@ -915,7 +948,7 @@ function TfngQuestionDialog({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-[2px]">
       <section className="max-h-[calc(100vh-4rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5">
+        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
               Section {sectionNumber}
@@ -935,17 +968,17 @@ function TfngQuestionDialog({
           </button>
         </div>
 
-        <div className="space-y-5 px-6 py-6">
-          <div className="rounded-2xl border border-[#233447] bg-white/5 px-5 py-4 text-sm text-white/75">
+        <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+          <div className="rounded-2xl border border-[#31465d] bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
             Add one or more TFNG questions for this section. Each question should use a reading test question number from 1 to 40 and one correct answer.
           </div>
 
           {questions.map((question, index) => (
             <section
               key={question.id}
-              className="rounded-2xl border border-[#233447] bg-[#111a24] p-5 shadow-sm"
+              className="rounded-2xl border border-[#31465d] bg-[#111a24] p-5 shadow-sm md:p-6"
             >
-              <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="mb-6 flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold">
                   Question {index + 1}
                 </h3>
@@ -960,7 +993,34 @@ function TfngQuestionDialog({
                 ) : null}
               </div>
 
-              <div className="grid gap-4">
+              <div className="grid gap-6">
+                <label className="form-control max-w-sm">
+                  <span className="label-text mb-2 font-medium text-white">
+                    Select Answer Type
+                  </span>
+                  <select
+                    className={`${darkSelectClassName} max-w-sm appearance-none`}
+                    style={{
+                      backgroundColor: "#1b2a3a",
+                      color: "#ffffff",
+                    }}
+                    value={question.answerType || "TFNG"}
+                    onChange={(event) =>
+                      onChangeQuestion(
+                        question.id,
+                        "answerType",
+                        event.target.value
+                      )
+                    }
+                  >
+                    {Object.entries(answerTypeOptions).map(([value, option]) => (
+                      <option key={`${question.id}-${value}`} value={value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
                 <label className="form-control max-w-sm">
                   <span className="label-text mb-2 font-medium">
                     Question Number
@@ -969,9 +1029,8 @@ function TfngQuestionDialog({
                     type="number"
                     min="1"
                     max="40"
-                    list="reading-question-numbers"
-                    className="input w-full border-[#233447] bg-[#1b2a3a] text-white"
-                    placeholder="Select question number or enter it manually"
+                    className={`${darkInputClassName} w-36 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                    placeholder="1-40"
                     value={question.questionNumber}
                     onChange={(event) =>
                       onChangeQuestion(
@@ -987,10 +1046,9 @@ function TfngQuestionDialog({
                   <span className="label-text mb-2 font-medium">
                     Question Text
                   </span>
-                  <input
-                    type="text"
-                    className="input w-full border-[#233447] bg-[#1b2a3a] text-white"
-                    placeholder="Enter text here"
+                  <textarea
+                    className={`${darkTextareaClassName} min-h-32 w-full leading-7`}
+                    placeholder="Enter one question statement here. Use Add Another Question below to create multiple questions of the same type."
                     value={question.prompt}
                     onChange={(event) =>
                       onChangeQuestion(question.id, "prompt", event.target.value)
@@ -1003,7 +1061,11 @@ function TfngQuestionDialog({
                     Select Answer
                   </span>
                   <select
-                    className="select w-full border-[#233447] bg-[#1b2a3a] text-white"
+                    className={`${darkSelectClassName} max-w-sm appearance-none`}
+                    style={{
+                      backgroundColor: "#1b2a3a",
+                      color: "#ffffff",
+                    }}
                     value={question.correctAnswer}
                     onChange={(event) =>
                       onChangeQuestion(
@@ -1013,7 +1075,8 @@ function TfngQuestionDialog({
                       )
                     }
                   >
-                    {tfngAnswerOptions.map((option) => (
+                    {(answerTypeOptions[question.answerType || "TFNG"]?.values ||
+                      []).map((option) => (
                       <option key={`${question.id}-${option}`} value={option}>
                         {option}
                       </option>
@@ -1024,30 +1087,24 @@ function TfngQuestionDialog({
             </section>
           ))}
 
-          <datalist id="reading-question-numbers">
-            {Array.from({ length: 40 }, (_, index) => index + 1).map(
-              (number) => (
-                <option key={`reading-number-${number}`} value={number} />
-              )
-            )}
-          </datalist>
-
-          <button
-            type="button"
-            className="btn rounded-xl border-[#3b5168] bg-transparent text-white hover:border-[#4a647f] hover:bg-white/5"
-            onClick={onAddQuestion}
-          >
-            Add Another Question
-          </button>
+          <div className="pt-2">
+            <button
+              type="button"
+              className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+              onClick={onAddQuestion}
+            >
+              Add Another Question
+            </button>
+          </div>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-[#233447] px-6 py-5">
+        <div className="mt-2 flex justify-end gap-3 border-t border-[#233447] px-6 py-5 md:px-7">
           {errorMessage ? (
             <p className="mr-auto self-center text-sm font-medium text-error">
               {errorMessage}
             </p>
           ) : null}
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn px-5" onClick={onClose}>
             Cancel
           </button>
           <CreatorActionButton onClick={onSave}>
@@ -1238,12 +1295,34 @@ export default function CreatorPage() {
   }
 
   function handleAddReadingQuestionType(sectionNumber, questionType) {
+    const sectionQuestionsField = `section${sectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+
     if (
-      questionType === "True / False / Not Given (or Yes / No / Not Given)"
+      questionType === "True / False / Not Given (or Yes / No / Not Given)" ||
+      questionType === "Multiple Choice"
     ) {
       setTfngDialogSectionNumber(sectionNumber);
-      setTfngDialogQuestions([createEmptyTfngQuestion()]);
+      setTfngDialogQuestions([
+        {
+          ...createEmptyTfngQuestion(
+            questionType === "Multiple Choice" ? "YNNG" : "TFNG"
+          ),
+          questionNumber: getNextReadingQuestionNumber([], existingQuestionNumbers),
+        },
+      ]);
       setTfngDialogError("");
+      setReadingTestError("");
       setIsTfngDialogOpen(true);
       return;
     }
@@ -1267,9 +1346,30 @@ export default function CreatorPage() {
   }
 
   function handleAddTfngQuestion() {
+    const sectionQuestionsField = `section${tfngDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+
     setTfngDialogQuestions((currentQuestions) => [
       ...currentQuestions,
-      createEmptyTfngQuestion(),
+      {
+        ...createEmptyTfngQuestion(
+          currentQuestions[currentQuestions.length - 1]?.answerType || "TFNG"
+        ),
+        questionNumber: getNextReadingQuestionNumber(
+          currentQuestions,
+          existingQuestionNumbers
+        ),
+      },
     ]);
   }
 
@@ -1285,7 +1385,19 @@ export default function CreatorPage() {
         question.id === questionId
           ? {
               ...question,
-              [field]: value,
+              ...(field === "answerType"
+                ? {
+                    answerType: value,
+                    correctAnswer:
+                      answerTypeOptions[value]?.values?.includes(
+                        question.correctAnswer
+                      )
+                        ? question.correctAnswer
+                        : answerTypeOptions[value]?.values?.[0] || "TRUE",
+                  }
+                : {
+                    [field]: value,
+                  }),
             }
           : question
       )
@@ -1353,6 +1465,7 @@ export default function CreatorPage() {
       title: "True / False / Not Given",
       items: tfngDialogQuestions.map((question) => ({
         ...question,
+        answerType: question.answerType || "TFNG",
         questionNumber: String(question.questionNumber).trim(),
         prompt: question.prompt.trim(),
       })),
@@ -1682,6 +1795,19 @@ export default function CreatorPage() {
             <TfngQuestionDialog
               sectionNumber={tfngDialogSectionNumber}
               questions={tfngDialogQuestions}
+              existingQuestionNumbers={Array.isArray(
+                readingTestForm[`section${tfngDialogSectionNumber}Questions`]
+              )
+                ? readingTestForm[
+                    `section${tfngDialogSectionNumber}Questions`
+                  ].flatMap((questionGroup) =>
+                    Array.isArray(questionGroup.items)
+                      ? questionGroup.items.map((item) =>
+                          String(item.questionNumber).trim()
+                        )
+                      : []
+                  )
+                : []}
               errorMessage={tfngDialogError}
               onChangeQuestion={handleChangeTfngQuestion}
               onAddQuestion={handleAddTfngQuestion}
