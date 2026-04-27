@@ -247,6 +247,16 @@ function createEmptyMatchingInformationQuestion(paragraphLabels = []) {
   };
 }
 
+function parseSummaryCompletionQuestions(summaryText) {
+  const matches = [...String(summaryText || "").matchAll(/(\d+)\s*\.{5,}/g)];
+
+  return matches.map((match, index) => ({
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    questionNumber: match[1],
+    correctAnswer: "",
+  }));
+}
+
 function getMatchingActivityLabel(activityType) {
   return (
     matchingActivityOptions.find((option) => option.value === activityType)
@@ -290,10 +300,16 @@ function createEmptyReadingForm() {
     testName: "",
     testDifficulty: "medium",
     date: getTodayDate(),
+    section1Title: "",
+    section1Subtitle: "",
     section1Text: "",
     section1Questions: [],
+    section2Title: "",
+    section2Subtitle: "",
     section2Text: "",
     section2Questions: [],
+    section3Title: "",
+    section3Subtitle: "",
     section3Text: "",
     section3Questions: [],
   };
@@ -323,9 +339,13 @@ function createReadingFormFromTest(test) {
 
   sections.forEach((section, index) => {
     const sectionNumber = section?.sectionNumber || index + 1;
+    const titleField = `section${sectionNumber}Title`;
+    const subtitleField = `section${sectionNumber}Subtitle`;
     const textField = `section${sectionNumber}Text`;
     const questionsField = `section${sectionNumber}Questions`;
 
+    nextForm[titleField] = section?.title || "";
+    nextForm[subtitleField] = section?.subtitle || "";
     nextForm[textField] = section?.passage || "";
     nextForm[questionsField] = Array.isArray(section?.questions)
       ? section.questions
@@ -375,6 +395,29 @@ function createReadingFormFromTest(test) {
                           `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                         questionNumber: String(question.number || ""),
                         prompt: question.question || "",
+                        correctAnswer: question.correctAnswer || "",
+                      }))
+                    : [],
+                },
+              ];
+            }
+
+            if (questionGroup.type === "SUMMARY_COMPLETION") {
+              return [
+                {
+                  id:
+                    questionGroup.id ||
+                    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  type: "SUMMARY_COMPLETION",
+                  title: questionGroup.title || "Summary Completion",
+                  instructions: questionGroup.instructions || "",
+                  summaryText: questionGroup.summaryText || "",
+                  items: Array.isArray(questionGroup.questions)
+                    ? questionGroup.questions.map((question) => ({
+                        id:
+                          question.id ||
+                          `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        questionNumber: String(question.number || ""),
                         correctAnswer: question.correctAnswer || "",
                       }))
                     : [],
@@ -926,6 +969,8 @@ function ReadingTestPanel({
           </div>
 
           {[1, 2, 3].map((sectionNumber) => {
+            const titleField = `section${sectionNumber}Title`;
+            const subtitleField = `section${sectionNumber}Subtitle`;
             const textField = `section${sectionNumber}Text`;
             const questionsField = `section${sectionNumber}Questions`;
             const sectionQuestions = Array.isArray(formValues[questionsField])
@@ -936,6 +981,9 @@ function ReadingTestPanel({
             );
             const matchingInformationQuestions = sectionQuestions.filter(
               (questionGroup) => questionGroup.type === "MATCHING_INFORMATION"
+            );
+            const summaryCompletionQuestions = sectionQuestions.filter(
+              (questionGroup) => questionGroup.type === "SUMMARY_COMPLETION"
             );
 
             return (
@@ -953,6 +1001,36 @@ function ReadingTestPanel({
                 </div>
 
                 <div className="grid gap-5">
+                  <label className="form-control">
+                    <span className="label-text mb-2 font-medium">
+                      Section {sectionNumber} - Heading
+                    </span>
+                    <input
+                      type="text"
+                      className={`${darkInputClassName} w-full text-lg font-semibold`}
+                      placeholder={`Enter the heading for Reading Passage ${sectionNumber}`}
+                      value={formValues[titleField]}
+                      onChange={(event) =>
+                        onChange(titleField, event.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label className="form-control">
+                    <span className="label-text mb-2 font-medium">
+                      Section {sectionNumber} - Subheading
+                    </span>
+                    <input
+                      type="text"
+                      className={`${darkInputClassName} w-full`}
+                      placeholder={`Enter the subheading for Reading Passage ${sectionNumber}`}
+                      value={formValues[subtitleField]}
+                      onChange={(event) =>
+                        onChange(subtitleField, event.target.value)
+                      }
+                    />
+                  </label>
+
                   <label className="form-control">
                     <span className="label-text mb-2 font-medium">
                       Section {sectionNumber} - Paste text here
@@ -1135,6 +1213,75 @@ function ReadingTestPanel({
                               </p>
                               <p className="mt-3 text-sm font-medium text-primary">
                                 Correct match: {item.correctAnswer || "Not set"}
+                              </p>
+                            </article>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {summaryCompletionQuestions.length > 0 ? (
+                    <div className="space-y-4 rounded-2xl border border-base-300 bg-base-200/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium">Summary Completion</p>
+                        <div className="badge badge-outline">
+                          {summaryCompletionQuestions.reduce(
+                            (count, group) =>
+                              count +
+                              (Array.isArray(group.items) ? group.items.length : 0),
+                            0
+                          )}{" "}
+                          questions
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {summaryCompletionQuestions.map((questionGroup) =>
+                          questionGroup.items.map((item) => (
+                            <article
+                              key={item.id}
+                              className="rounded-xl border border-base-300 bg-base-100 p-4"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <p className="text-sm font-medium text-base-content/60">
+                                  Question {item.questionNumber || "Unassigned"}
+                                </p>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                                  aria-label={`Delete question ${item.questionNumber || ""}`}
+                                  onClick={() =>
+                                    setConfirmState({
+                                      type: "delete-question",
+                                      title: "Delete Question",
+                                      message: `Are you sure you want to delete Question ${
+                                        item.questionNumber || "?"
+                                      }?`,
+                                      confirmLabel: "Delete",
+                                      onConfirm: () => {
+                                        onDeleteReadingQuestionItem(
+                                          sectionNumber,
+                                          questionGroup.id,
+                                          item.id
+                                        );
+                                        setConfirmState(null);
+                                      },
+                                    })
+                                  }
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                              <p className="mt-2 text-sm leading-7 text-base-content/70">
+                                {questionGroup.summaryText
+                                  ? `${questionGroup.summaryText.slice(0, 180)}${
+                                      questionGroup.summaryText.length > 180 ? "..." : ""
+                                    }`
+                                  : "No summary text added yet."}
+                              </p>
+                              <p className="mt-3 text-sm font-medium text-primary">
+                                Exact answer: {item.correctAnswer || "Not set"}
                               </p>
                             </article>
                           ))
@@ -1685,6 +1832,161 @@ function TfngQuestionDialog({
   );
 }
 
+function SummaryCompletionDialog({
+  sectionNumber,
+  instructions,
+  summaryText,
+  questions,
+  errorMessage,
+  onChangeInstructions,
+  onChangeText,
+  onChangeQuestion,
+  onClose,
+  onSave,
+}) {
+  const [isPortalReady, setIsPortalReady] = useState(false);
+
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  if (!isPortalReady) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "16px",
+        overflowY: "auto",
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+              Section {sectionNumber}
+            </p>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Summary Completion
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            aria-label="Close summary completion dialog"
+            onClick={onClose}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+            Paste the full summary text once. The builder will automatically detect blanks when it finds a question number followed by at least five dots, like 24 ........
+          </div>
+
+          <section className="rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+            <div className="grid gap-6">
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium text-white">
+                  Instructions
+                </span>
+                <textarea
+                  className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                  placeholder="Enter the instructions students should see."
+                  value={instructions}
+                  onChange={(event) => onChangeInstructions(event.target.value)}
+                />
+              </label>
+
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium text-white">
+                  Summary Text
+                </span>
+                <textarea
+                  className={`${darkTextareaClassName} min-h-72 w-full leading-7`}
+                  placeholder="Paste the summary completion text here."
+                  value={summaryText}
+                  onChange={(event) => onChangeText(event.target.value)}
+                />
+              </label>
+
+              <div className="rounded-2xl bg-[#0f1720] p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="font-medium text-white">Generated Answer Fields</p>
+                  <div className="badge badge-outline">{questions.length} answers</div>
+                </div>
+
+                {questions.length > 0 ? (
+                  <div className="space-y-4">
+                    {questions.map((question) => (
+                      <div
+                        key={question.id}
+                        className="grid gap-3 rounded-2xl border border-[#233447] bg-[#111a24] p-4 md:grid-cols-[120px_minmax(0,1fr)]"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-white/60">
+                            Question
+                          </p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {question.questionNumber}
+                          </p>
+                        </div>
+                        <label className="form-control">
+                          <span className="label-text mb-2 font-medium text-white">
+                            Enter Correct Answer
+                          </span>
+                          <input
+                            type="text"
+                            className={`${darkInputClassName} w-full`}
+                            placeholder={`Enter the exact answer for Question ${question.questionNumber}`}
+                            value={question.correctAnswer}
+                            onChange={(event) =>
+                              onChangeQuestion(question.id, event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-7 text-white/60">
+                    No blanks detected yet. Add a number followed by at least five dots in the summary text to generate answer fields.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-3 px-6 py-5 md:px-7">
+          {errorMessage ? (
+            <p className="mr-auto self-center text-sm font-medium text-error">
+              {errorMessage}
+            </p>
+          ) : null}
+          <button type="button" className="btn px-5" onClick={onClose}>
+            Cancel
+          </button>
+          <CreatorActionButton onClick={onSave}>
+            Save Questions
+          </CreatorActionButton>
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1720,6 +2022,18 @@ export default function CreatorPage() {
   const [matchingInformationDialogQuestionsText, setMatchingInformationDialogQuestionsText] =
     useState("");
   const [matchingInformationDialogError, setMatchingInformationDialogError] =
+    useState("");
+  const [isSummaryCompletionDialogOpen, setIsSummaryCompletionDialogOpen] =
+    useState(false);
+  const [summaryCompletionDialogSectionNumber, setSummaryCompletionDialogSectionNumber] =
+    useState(1);
+  const [summaryCompletionDialogInstructions, setSummaryCompletionDialogInstructions] =
+    useState("");
+  const [summaryCompletionDialogText, setSummaryCompletionDialogText] =
+    useState("");
+  const [summaryCompletionDialogQuestions, setSummaryCompletionDialogQuestions] =
+    useState([]);
+  const [summaryCompletionDialogError, setSummaryCompletionDialogError] =
     useState("");
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
   const [writingTests, setWritingTests] = useState([]);
@@ -1883,6 +2197,11 @@ export default function CreatorPage() {
     setMatchingInformationDialogQuestionsText("");
     setMatchingInformationDialogPossibleAnswersText("");
     setMatchingInformationDialogError("");
+    setIsSummaryCompletionDialogOpen(false);
+    setSummaryCompletionDialogInstructions("");
+    setSummaryCompletionDialogText("");
+    setSummaryCompletionDialogQuestions([]);
+    setSummaryCompletionDialogError("");
     setEditingReadingTestId("");
   }
 
@@ -1939,6 +2258,21 @@ export default function CreatorPage() {
       return;
     }
 
+    if (questionType === "Summary Completion") {
+      setSummaryCompletionDialogSectionNumber(sectionNumber);
+      setSummaryCompletionDialogInstructions("");
+      setSummaryCompletionDialogText("");
+      setSummaryCompletionDialogQuestions([]);
+      setSummaryCompletionDialogError("");
+      setReadingTestError("");
+      setReadingQuestionTypeSelections((currentSelections) => ({
+        ...currentSelections,
+        [sectionNumber]: "",
+      }));
+      setIsSummaryCompletionDialogOpen(true);
+      return;
+    }
+
     setReadingQuestionTypeSelections((currentSelections) => ({
       ...currentSelections,
       [sectionNumber]: "",
@@ -1951,6 +2285,8 @@ export default function CreatorPage() {
     setReadingTestNotice("");
     setTfngDialogError("");
     setIsTfngDialogOpen(false);
+    setIsMatchingInformationDialogOpen(false);
+    setIsSummaryCompletionDialogOpen(false);
     setEditingReadingTestId(test.id);
     setReadingTestForm(createReadingFormFromTest(test));
     setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
@@ -1968,6 +2304,14 @@ export default function CreatorPage() {
     setMatchingInformationDialogQuestionsText("");
     setMatchingInformationDialogPossibleAnswersText("");
     setMatchingInformationDialogError("");
+  }
+
+  function handleCloseSummaryCompletionDialog() {
+    setIsSummaryCompletionDialogOpen(false);
+    setSummaryCompletionDialogInstructions("");
+    setSummaryCompletionDialogText("");
+    setSummaryCompletionDialogQuestions([]);
+    setSummaryCompletionDialogError("");
   }
 
   function syncMatchingInformationQuestions({
@@ -2065,6 +2409,48 @@ export default function CreatorPage() {
       currentQuestions.length > 1
         ? currentQuestions.filter((question) => question.id !== questionId)
         : currentQuestions
+    );
+  }
+
+  function syncSummaryCompletionQuestions(summaryText, previousQuestions = []) {
+    const parsedQuestions = parseSummaryCompletionQuestions(summaryText);
+
+    setSummaryCompletionDialogQuestions(
+      parsedQuestions.map((question) => {
+        const matchingPreviousQuestion = previousQuestions.find(
+          (previousQuestion) =>
+            String(previousQuestion.questionNumber).trim() ===
+            String(question.questionNumber).trim()
+        );
+
+        return {
+          ...question,
+          id: matchingPreviousQuestion?.id || question.id,
+          correctAnswer: matchingPreviousQuestion?.correctAnswer || "",
+        };
+      })
+    );
+  }
+
+  function handleChangeSummaryCompletionInstructions(value) {
+    setSummaryCompletionDialogInstructions(value);
+  }
+
+  function handleChangeSummaryCompletionText(value) {
+    setSummaryCompletionDialogText(value);
+    syncSummaryCompletionQuestions(value, summaryCompletionDialogQuestions);
+  }
+
+  function handleChangeSummaryCompletionQuestion(questionId, value) {
+    setSummaryCompletionDialogQuestions((currentQuestions) =>
+      currentQuestions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              correctAnswer: value,
+            }
+          : question
+      )
     );
   }
 
@@ -2307,6 +2693,110 @@ export default function CreatorPage() {
     setMatchingInformationDialogQuestionsText("");
     setMatchingInformationDialogError("");
     setIsMatchingInformationDialogOpen(false);
+    setReadingTestError("");
+  }
+
+  function handleSaveSummaryCompletionQuestions() {
+    const normalizedNumbers = summaryCompletionDialogQuestions.map((question) =>
+      String(question.questionNumber).trim()
+    );
+    const sectionQuestionsField = `section${summaryCompletionDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+
+    if (!summaryCompletionDialogText.trim()) {
+      setSummaryCompletionDialogError("Paste the summary completion text before saving.");
+      return;
+    }
+
+    if (summaryCompletionDialogQuestions.length === 0) {
+      setSummaryCompletionDialogError(
+        "Add at least one numbered blank like 24 ........ before saving."
+      );
+      return;
+    }
+
+    if (
+      summaryCompletionDialogQuestions.some(
+        (question) =>
+          !String(question.questionNumber).trim() ||
+          !String(question.correctAnswer).trim()
+      )
+    ) {
+      setSummaryCompletionDialogError(
+        "Every generated summary completion answer must be filled in."
+      );
+      return;
+    }
+
+    if (new Set(normalizedNumbers).size !== normalizedNumbers.length) {
+      setSummaryCompletionDialogError(
+        "Each summary completion question number must be unique."
+      );
+      return;
+    }
+
+    if (
+      summaryCompletionDialogQuestions.some((question) => {
+        const questionNumber = Number(question.questionNumber);
+        return !Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > 40;
+      })
+    ) {
+      setSummaryCompletionDialogError("Question numbers must be between 1 and 40.");
+      return;
+    }
+
+    if (
+      normalizedNumbers.some((questionNumber) =>
+        existingQuestionNumbers.includes(questionNumber)
+      )
+    ) {
+      setSummaryCompletionDialogError(
+        "One or more question numbers are already used in this section."
+      );
+      return;
+    }
+
+    const newQuestionGroup = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: "SUMMARY_COMPLETION",
+      title: "Summary Completion",
+      instructions: summaryCompletionDialogInstructions.trim(),
+      summaryText: summaryCompletionDialogText,
+      items: summaryCompletionDialogQuestions.map((question) => ({
+        ...question,
+        questionNumber: String(question.questionNumber).trim(),
+        correctAnswer: String(question.correctAnswer).trim(),
+      })),
+    };
+
+    setReadingTestForm((currentForm) => ({
+      ...currentForm,
+      [sectionQuestionsField]: [
+        ...(Array.isArray(currentForm[sectionQuestionsField])
+          ? currentForm[sectionQuestionsField]
+          : []),
+        newQuestionGroup,
+      ].sort(
+        (leftGroup, rightGroup) =>
+          getQuestionGroupFirstNumber(leftGroup) -
+          getQuestionGroupFirstNumber(rightGroup)
+      ),
+    }));
+    setSummaryCompletionDialogInstructions("");
+    setSummaryCompletionDialogText("");
+    setSummaryCompletionDialogQuestions([]);
+    setSummaryCompletionDialogError("");
+    setIsSummaryCompletionDialogOpen(false);
     setReadingTestError("");
   }
 
@@ -2644,6 +3134,21 @@ export default function CreatorPage() {
               onRemoveQuestion={handleRemoveMatchingInformationQuestion}
               onClose={handleCloseMatchingInformationDialog}
               onSave={handleSaveMatchingInformationQuestions}
+            />
+          ) : null}
+
+          {isSummaryCompletionDialogOpen ? (
+            <SummaryCompletionDialog
+              sectionNumber={summaryCompletionDialogSectionNumber}
+              instructions={summaryCompletionDialogInstructions}
+              summaryText={summaryCompletionDialogText}
+              questions={summaryCompletionDialogQuestions}
+              errorMessage={summaryCompletionDialogError}
+              onChangeInstructions={handleChangeSummaryCompletionInstructions}
+              onChangeText={handleChangeSummaryCompletionText}
+              onChangeQuestion={handleChangeSummaryCompletionQuestion}
+              onClose={handleCloseSummaryCompletionDialog}
+              onSave={handleSaveSummaryCompletionQuestions}
             />
           ) : null}
 

@@ -375,9 +375,14 @@ export default function ReadingTestMode({ testData }) {
                     Section {section.sectionNumber || sectionIndex + 1}
                   </p>
                   {section.title ? (
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                    <h2 className="mt-2 text-3xl font-black leading-tight tracking-tight text-base-content">
                       {section.title}
                     </h2>
+                  ) : null}
+                  {section.subtitle ? (
+                    <p className="mt-3 text-lg font-medium leading-8 text-base-content/75">
+                      {section.subtitle}
+                    </p>
                   ) : null}
                   <div className="mt-6 space-y-4">
                     {renderPassageParagraphs(section.passage)}
@@ -435,6 +440,11 @@ export default function ReadingTestMode({ testData }) {
                       <h2 className="mt-2 text-xl font-semibold tracking-tight">
                         {section.title}
                       </h2>
+                    ) : null}
+                    {section.subtitle ? (
+                      <p className="mt-2 text-sm leading-6 text-base-content/70">
+                        {section.subtitle}
+                      </p>
                     ) : null}
                   </div>
 
