@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AcademicCapIcon,
   Bars3Icon,
@@ -835,14 +836,23 @@ function ReadingTestPanel({
   onClose,
   onChange,
   onAddQuestionType,
+  onDeleteReadingQuestionItem,
   onSave,
 }) {
+  const [confirmState, setConfirmState] = useState(null);
+  const [isPortalReady, setIsPortalReady] = useState(false);
+
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
   return (
-    <section
-      className={`relative z-10 w-full rounded-3xl border border-base-300 bg-base-100 shadow-xl transition-[margin] duration-200 ${
-        isSidebarCollapsed ? "ml-52" : "ml-0"
-      }`}
-    >
+    <>
+      <section
+        className={`relative z-10 w-full rounded-3xl border border-base-300 bg-base-100 shadow-xl transition-[margin] duration-200 ${
+          isSidebarCollapsed ? "ml-52" : "ml-0"
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-base-300 px-6 py-5">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/45">
@@ -967,6 +977,10 @@ function ReadingTestPanel({
                       </span>
                       <select
                         className={`${darkSelectClassName} max-w-md font-medium`}
+                        style={{
+                          backgroundColor: "#1b2a3a",
+                          color: "#ffffff",
+                        }}
                         value={questionTypeSelections[sectionNumber] || ""}
                         onChange={(event) => {
                           const nextQuestionType = event.target.value;
@@ -1015,9 +1029,36 @@ function ReadingTestPanel({
                               key={item.id}
                               className="rounded-xl border border-base-300 bg-base-100 p-4"
                             >
-                              <p className="text-sm font-medium text-base-content/60">
-                                Question {item.questionNumber || "Unassigned"}
-                              </p>
+                              <div className="flex items-start justify-between gap-4">
+                                <p className="text-sm font-medium text-base-content/60">
+                                  Question {item.questionNumber || "Unassigned"}
+                                </p>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                                  aria-label={`Delete question ${item.questionNumber || ""}`}
+                                  onClick={() =>
+                                    setConfirmState({
+                                      type: "delete-question",
+                                      title: "Delete Question",
+                                      message: `Are you sure you want to delete Question ${
+                                        item.questionNumber || "?"
+                                      }?`,
+                                      confirmLabel: "Delete",
+                                      onConfirm: () => {
+                                        onDeleteReadingQuestionItem(
+                                          sectionNumber,
+                                          questionGroup.id,
+                                          item.id
+                                        );
+                                        setConfirmState(null);
+                                      },
+                                    })
+                                  }
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
+                              </div>
                               <p className="mt-2 leading-7">
                                 {item.prompt || "No question text added yet."}
                               </p>
@@ -1057,9 +1098,38 @@ function ReadingTestPanel({
                               key={item.id}
                               className="rounded-xl border border-base-300 bg-base-100 p-4"
                             >
-                              <p className="text-sm font-medium text-base-content/60">
-                                Question {item.questionNumber || "Unassigned"}
-                              </p>
+                              <div className="flex items-start justify-between gap-4">
+                                <p className="text-sm font-medium text-base-content/60">
+                                  Question {item.questionNumber || "Unassigned"}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                                    aria-label={`Delete question ${item.questionNumber || ""}`}
+                                    onClick={() =>
+                                      setConfirmState({
+                                        type: "delete-question",
+                                        title: "Delete Question",
+                                        message: `Are you sure you want to delete Question ${
+                                          item.questionNumber || "?"
+                                        }?`,
+                                        confirmLabel: "Delete",
+                                        onConfirm: () => {
+                                          onDeleteReadingQuestionItem(
+                                            sectionNumber,
+                                            questionGroup.id,
+                                            item.id
+                                          );
+                                          setConfirmState(null);
+                                        },
+                                      })
+                                    }
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
                               <p className="mt-2 leading-7">
                                 {item.prompt || "No question text added yet."}
                               </p>
@@ -1092,6 +1162,47 @@ function ReadingTestPanel({
           </CreatorActionButton>
         </div>
       </section>
+
+      {isPortalReady && confirmState
+        ? createPortal(
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "16px",
+                backgroundColor: "rgba(0, 0, 0, 0.72)",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <section className="w-full max-w-md rounded-3xl border border-[#233447] bg-[#18232f] p-6 text-white shadow-2xl">
+                <h3 className="text-xl font-semibold tracking-tight">
+                  {confirmState.title}
+                </h3>
+                <p className="mt-3 leading-7 text-white/80">
+                  {confirmState.message}
+                </p>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    className="btn px-5"
+                    onClick={() => setConfirmState(null)}
+                  >
+                    Cancel
+                  </button>
+                  <CreatorActionButton onClick={confirmState.onConfirm}>
+                    {confirmState.confirmLabel}
+                  </CreatorActionButton>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
 
@@ -1106,14 +1217,57 @@ function MatchingInformationDialog({
   onChangeQuestionsText,
   onChangeAnswersText,
   onChangeQuestion,
+  onRemoveQuestion,
   onClose,
   onSave,
 }) {
   const possibleAnswers = parseNonEmptyLines(answersText);
+  const [confirmState, setConfirmState] = useState(null);
+  const [isPortalReady, setIsPortalReady] = useState(false);
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-[2px]">
-      <section className="max-h-[calc(100vh-4rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  function handleConfirmDelete(question) {
+    setConfirmState({
+      type: "delete-question",
+      title: "Delete Question",
+      message: `Are you sure you want to delete Question ${
+        question.questionNumber || "?"
+      }?`,
+      confirmLabel: "Delete",
+      onConfirm: () => {
+        onRemoveQuestion(question.id);
+        setConfirmState(null);
+      },
+    });
+  }
+
+  function handleCloseConfirm() {
+    setConfirmState(null);
+  }
+
+  if (!isPortalReady) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "16px",
+        overflowY: "auto",
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
@@ -1192,6 +1346,7 @@ function MatchingInformationDialog({
                       <th className="w-24">Q No.</th>
                       <th>Question</th>
                       <th className="w-72">Correct Answer</th>
+                      <th className="w-44">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1248,6 +1403,18 @@ function MatchingInformationDialog({
                             ))}
                           </select>
                         </td>
+                        <td className="align-top">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                              aria-label={`Delete question ${question.questionNumber || ""}`}
+                              onClick={() => handleConfirmDelete(question)}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1271,7 +1438,45 @@ function MatchingInformationDialog({
           </CreatorActionButton>
         </div>
       </section>
-    </div>
+
+      {confirmState ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            backgroundColor: "rgba(0, 0, 0, 0.72)",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <section className="w-full max-w-md rounded-3xl border border-[#233447] bg-[#18232f] p-6 text-white shadow-2xl">
+            <h3 className="text-xl font-semibold tracking-tight">
+              {confirmState.title}
+            </h3>
+            <p className="mt-3 leading-7 text-white/80">
+              {confirmState.message}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="btn px-5"
+                onClick={handleCloseConfirm}
+              >
+                Cancel
+              </button>
+              <CreatorActionButton onClick={confirmState.onConfirm}>
+                {confirmState.confirmLabel}
+              </CreatorActionButton>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </div>,
+    document.body
   );
 }
 
@@ -1285,9 +1490,32 @@ function TfngQuestionDialog({
   onClose,
   onSave,
 }) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-[2px]">
-      <section className="max-h-[calc(100vh-4rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
+  const [isPortalReady, setIsPortalReady] = useState(false);
+
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  if (!isPortalReady) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "16px",
+        overflowY: "auto",
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
@@ -1452,7 +1680,8 @@ function TfngQuestionDialog({
           </CreatorActionButton>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1831,6 +2060,14 @@ export default function CreatorPage() {
     );
   }
 
+  function handleRemoveMatchingInformationQuestion(questionId) {
+    setMatchingInformationDialogQuestions((currentQuestions) =>
+      currentQuestions.length > 1
+        ? currentQuestions.filter((question) => question.id !== questionId)
+        : currentQuestions
+    );
+  }
+
   function handleChangeTfngQuestion(questionId, field, value) {
     setTfngDialogQuestions((currentQuestions) =>
       currentQuestions.map((question) =>
@@ -1854,6 +2091,34 @@ export default function CreatorPage() {
           : question
       )
     );
+  }
+
+  function handleDeleteReadingQuestionItem(sectionNumber, groupId, itemId) {
+    const sectionQuestionsField = `section${sectionNumber}Questions`;
+
+    setReadingTestForm((currentForm) => ({
+      ...currentForm,
+      [sectionQuestionsField]: (Array.isArray(currentForm[sectionQuestionsField])
+        ? currentForm[sectionQuestionsField]
+        : []
+      )
+        .map((questionGroup) => {
+          if (questionGroup.id !== groupId) {
+            return questionGroup;
+          }
+
+          return {
+            ...questionGroup,
+            items: Array.isArray(questionGroup.items)
+              ? questionGroup.items.filter((item) => item.id !== itemId)
+              : [],
+          };
+        })
+        .filter(
+          (questionGroup) =>
+            !Array.isArray(questionGroup.items) || questionGroup.items.length > 0
+        ),
+    }));
   }
 
   function handleSaveTfngQuestions() {
@@ -2376,6 +2641,7 @@ export default function CreatorPage() {
               onChangeQuestionsText={handleChangeMatchingInformationQuestionsText}
               onChangeAnswersText={handleChangeMatchingInformationPossibleAnswersText}
               onChangeQuestion={handleChangeMatchingInformationQuestion}
+              onRemoveQuestion={handleRemoveMatchingInformationQuestion}
               onClose={handleCloseMatchingInformationDialog}
               onSave={handleSaveMatchingInformationQuestions}
             />
@@ -2405,6 +2671,7 @@ export default function CreatorPage() {
                     onClose={handleCloseReadingTestComposer}
                     onChange={handleReadingTestChange}
                     onAddQuestionType={handleAddReadingQuestionType}
+                    onDeleteReadingQuestionItem={handleDeleteReadingQuestionItem}
                     onSave={handleSaveReadingTest}
                   />
                 ) : (
