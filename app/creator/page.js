@@ -159,10 +159,7 @@ const difficultyOptions = [
 const readingQuestionTypes = [
   "Multiple Choice",
   "True / False / Not Given (or Yes / No / Not Given)",
-  "Matching Headings",
-  "Matching Information (to paragraphs)",
-  "Matching Features (e.g., people, theories)",
-  "Matching Sentence Endings",
+  "All Matching Activities",
   "Sentence Completion",
   "Summary Completion",
   "Note Completion",
@@ -182,6 +179,17 @@ const answerTypeOptions = {
     values: ["YES", "NO", "NOT GIVEN"],
   },
 };
+
+const matchingActivityOptions = [
+  {
+    value: "MATCH_PARAGRAPHS_TO_INFO",
+    label: "Match paragraphs to info",
+  },
+  {
+    value: "MATCH_INFO_TO_PARAGRAPHS",
+    label: "Match info to paragraphs",
+  },
+];
 
 function createEmptyTfngQuestion(answerType = "TFNG") {
   return {
@@ -234,8 +242,46 @@ function createEmptyMatchingInformationQuestion(paragraphLabels = []) {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     questionNumber: "",
     prompt: "",
-    correctParagraph: paragraphLabels[0] || "",
+    correctAnswer: paragraphLabels[0] || "",
   };
+}
+
+function getMatchingActivityLabel(activityType) {
+  return (
+    matchingActivityOptions.find((option) => option.value === activityType)
+      ?.label || "Match info to paragraphs"
+  );
+}
+
+function buildDefaultParagraphPromptLines(paragraphLabels = []) {
+  return paragraphLabels.map((label) => `Paragraph ${label}`).join("\n");
+}
+
+function parseNonEmptyLines(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function parseMatchingQuestionLines(value) {
+  return parseNonEmptyLines(value).map((line, index) => {
+    const match = line.match(/^(\d+)\s+(.+)$/);
+
+    if (match) {
+      return {
+        id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+        questionNumber: match[1],
+        prompt: match[2].trim(),
+      };
+    }
+
+    return {
+      id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+      questionNumber: "",
+      prompt: line,
+    };
+  });
 }
 
 function createEmptyReadingForm() {
@@ -282,28 +328,61 @@ function createReadingFormFromTest(test) {
     nextForm[textField] = section?.passage || "";
     nextForm[questionsField] = Array.isArray(section?.questions)
       ? section.questions
-          .filter((questionGroup) => questionGroup.type === "TFNG")
-          .map((questionGroup) => ({
-            id:
-              questionGroup.id ||
-              `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            type: "TFNG",
-            title: questionGroup.title || "True / False / Not Given",
-            items: Array.isArray(questionGroup.questions)
-              ? questionGroup.questions.map((question) => ({
+          .flatMap((questionGroup) => {
+            if (questionGroup.type === "TFNG") {
+              return [
+                {
                   id:
-                    question.id ||
+                    questionGroup.id ||
                     `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                  answerType: question.answerType || "TFNG",
-                  questionNumber: String(question.number || ""),
-                  prompt: question.question || "",
-                  correctAnswer:
-                    question.correctAnswer ||
-                    answerTypeOptions[question.answerType || "TFNG"]?.values?.[0] ||
-                    "TRUE",
-                }))
-              : [],
-          }))
+                  type: "TFNG",
+                  title: questionGroup.title || "True / False / Not Given",
+                  items: Array.isArray(questionGroup.questions)
+                    ? questionGroup.questions.map((question) => ({
+                        id:
+                          question.id ||
+                          `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        answerType: question.answerType || "TFNG",
+                        questionNumber: String(question.number || ""),
+                        prompt: question.question || "",
+                        correctAnswer:
+                          question.correctAnswer ||
+                          answerTypeOptions[question.answerType || "TFNG"]?.values?.[0] ||
+                          "TRUE",
+                      }))
+                    : [],
+                },
+              ];
+            }
+
+            if (questionGroup.type === "MATCHING_INFORMATION") {
+              return [
+                {
+                  id:
+                    questionGroup.id ||
+                    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  type: "MATCHING_INFORMATION",
+                  title:
+                    questionGroup.title || "Matching Information (to paragraphs)",
+                  activityType:
+                    questionGroup.activityType || "MATCH_INFO_TO_PARAGRAPHS",
+                  instructions: questionGroup.instructions || "",
+                  items: Array.isArray(questionGroup.questions)
+                    ? questionGroup.questions.map((question) => ({
+                        id:
+                          question.id ||
+                          `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        questionNumber: String(question.number || ""),
+                        prompt: question.question || "",
+                        correctAnswer: question.correctAnswer || "",
+                      }))
+                    : [],
+                },
+              ];
+            }
+
+            return [];
+          })
       : [];
   });
 
@@ -985,7 +1064,7 @@ function ReadingTestPanel({
                                 {item.prompt || "No question text added yet."}
                               </p>
                               <p className="mt-3 text-sm font-medium text-primary">
-                                Correct paragraph: {item.correctParagraph || "Not set"}
+                                Correct match: {item.correctAnswer || "Not set"}
                               </p>
                             </article>
                           ))
@@ -1019,14 +1098,19 @@ function ReadingTestPanel({
 function MatchingInformationDialog({
   sectionNumber,
   questions,
-  paragraphLabels,
+  instructions,
+  questionsText,
+  answersText,
   errorMessage,
+  onChangeInstructions,
+  onChangeQuestionsText,
+  onChangeAnswersText,
   onChangeQuestion,
-  onAddQuestion,
-  onRemoveQuestion,
   onClose,
   onSave,
 }) {
+  const possibleAnswers = parseNonEmptyLines(answersText);
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-[2px]">
       <section className="max-h-[calc(100vh-4rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
@@ -1052,99 +1136,125 @@ function MatchingInformationDialog({
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
           <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
-            Use the paragraph letters already included in the reading passage. They will be matched to each question and saved exactly for future answer checking.
+            Add the question lines in one field and the selectable answers in the other. The builder will generate a simple matching table underneath.
           </div>
 
-          {questions.map((question, index) => (
-            <section
-              key={question.id}
-              className="mt-1 rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6"
-            >
-              <div className="mb-6 flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold">Question {index + 1}</h3>
-                {questions.length > 1 ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm text-error hover:bg-error/10"
-                    onClick={() => onRemoveQuestion(question.id)}
-                  >
-                    Remove
-                  </button>
-                ) : null}
-              </div>
+          <section className="mt-1 rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+            <div className="grid gap-6 pt-1">
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium text-white">
+                  Instructions
+                </span>
+                <textarea
+                  className={`${darkTextareaClassName} min-h-28 w-full leading-7`}
+                  placeholder="Enter the instructions students should see, for example: Match each person with the correct idea, A-E."
+                  value={instructions}
+                  onChange={(event) =>
+                    onChangeInstructions(event.target.value)
+                  }
+                />
+              </label>
 
-              <div className="grid gap-6 pt-1">
-                <label className="form-control max-w-sm">
+              <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <label className="form-control">
                   <span className="label-text mb-2 font-medium text-white">
-                    Question Number
+                    Field 1: Questions
                   </span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="40"
-                    className={`${darkInputClassName} w-36 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
-                    placeholder="1-40"
-                    value={question.questionNumber}
+                  <textarea
+                    className={`${darkTextareaClassName} min-h-56 w-full leading-7`}
+                    placeholder={`20 Peter Toohey\n21 Thomas Goetz\n22 John Eastwood\n23 Francoise Wemelsfelder`}
+                    value={questionsText}
                     onChange={(event) =>
-                      onChangeQuestion(
-                        question.id,
-                        "questionNumber",
-                        event.target.value
-                      )
+                      onChangeQuestionsText(event.target.value)
                     }
                   />
                 </label>
 
                 <label className="form-control">
                   <span className="label-text mb-2 font-medium text-white">
-                    Question Text
+                    Field 2: Answers that can be selected
                   </span>
                   <textarea
-                    className={`${darkTextareaClassName} min-h-32 w-full leading-7`}
-                    placeholder="Enter one matching information statement here."
-                    value={question.prompt}
+                    className={`${darkTextareaClassName} min-h-56 w-full leading-7`}
+                    placeholder={`A The way we live today may encourage boredom.\nB One sort of boredom is worse than all the others.\nC Levels of boredom may fall in the future.`}
+                    value={answersText}
                     onChange={(event) =>
-                      onChangeQuestion(question.id, "prompt", event.target.value)
+                      onChangeAnswersText(event.target.value)
                     }
                   />
                 </label>
-
-                <label className="form-control max-w-sm">
-                  <span className="label-text mb-2 font-medium text-white">
-                    Correct Paragraph
-                  </span>
-                  <select
-                    className={`${darkSelectClassName} max-w-sm appearance-none`}
-                    style={{ backgroundColor: "#1b2a3a", color: "#ffffff" }}
-                    value={question.correctParagraph}
-                    onChange={(event) =>
-                      onChangeQuestion(
-                        question.id,
-                        "correctParagraph",
-                        event.target.value
-                      )
-                    }
-                  >
-                    {paragraphLabels.map((label) => (
-                      <option key={`${question.id}-${label}`} value={label}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
-            </section>
-          ))}
 
-          <div className="pt-4">
-            <button
-              type="button"
-              className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
-              onClick={onAddQuestion}
-            >
-              Add Another Question
-            </button>
-          </div>
+              <div className="overflow-x-auto rounded-2xl bg-[#0f1720] p-4">
+                <table className="table">
+                  <thead>
+                    <tr className="text-white/70">
+                      <th className="w-24">Q No.</th>
+                      <th>Question</th>
+                      <th className="w-72">Correct Answer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {questions.map((question) => (
+                      <tr key={question.id}>
+                        <td className="align-top">
+                          <input
+                            type="number"
+                            min="1"
+                            max="40"
+                            className={`${darkInputClassName} w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                            value={question.questionNumber}
+                            onChange={(event) =>
+                              onChangeQuestion(
+                                question.id,
+                                "questionNumber",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="align-top">
+                          <input
+                            type="text"
+                            className={`${darkInputClassName} w-full`}
+                            value={question.prompt}
+                            onChange={(event) =>
+                              onChangeQuestion(
+                                question.id,
+                                "prompt",
+                                event.target.value
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="align-top">
+                          <select
+                            className={`${darkSelectClassName} w-full appearance-none`}
+                            style={{ backgroundColor: "#1b2a3a", color: "#ffffff" }}
+                            value={question.correctAnswer}
+                            onChange={(event) =>
+                              onChangeQuestion(
+                                question.id,
+                                "correctAnswer",
+                                event.target.value
+                              )
+                            }
+                          >
+                            <option value="">Select answer</option>
+                            {possibleAnswers.map((option) => (
+                              <option key={`${question.id}-${option}`} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div className="mt-4 flex justify-end gap-3 px-6 py-5 md:px-7">
@@ -1374,6 +1484,12 @@ export default function CreatorPage() {
     useState(1);
   const [matchingInformationDialogQuestions, setMatchingInformationDialogQuestions] =
     useState([createEmptyMatchingInformationQuestion()]);
+  const [matchingInformationDialogInstructions, setMatchingInformationDialogInstructions] =
+    useState("");
+  const [matchingInformationDialogPossibleAnswersText, setMatchingInformationDialogPossibleAnswersText] =
+    useState("");
+  const [matchingInformationDialogQuestionsText, setMatchingInformationDialogQuestionsText] =
+    useState("");
   const [matchingInformationDialogError, setMatchingInformationDialogError] =
     useState("");
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
@@ -1534,6 +1650,9 @@ export default function CreatorPage() {
     setIsTfngDialogOpen(false);
     setTfngDialogError("");
     setIsMatchingInformationDialogOpen(false);
+    setMatchingInformationDialogInstructions("");
+    setMatchingInformationDialogQuestionsText("");
+    setMatchingInformationDialogPossibleAnswersText("");
     setMatchingInformationDialogError("");
     setEditingReadingTestId("");
   }
@@ -1575,29 +1694,12 @@ export default function CreatorPage() {
       return;
     }
 
-    if (questionType === "Matching Information (to paragraphs)") {
-      const paragraphLabels = extractParagraphLabels(
-        readingTestForm[`section${sectionNumber}Text`]
-      );
-
-      if (paragraphLabels.length === 0) {
-        setReadingQuestionTypeSelections((currentSelections) => ({
-          ...currentSelections,
-          [sectionNumber]: "",
-        }));
-        setReadingTestError(
-          "Add paragraph letters like A, B, C into the passage text first so matching information can target them."
-        );
-        return;
-      }
-
+    if (questionType === "All Matching Activities") {
       setMatchingInformationDialogSectionNumber(sectionNumber);
-      setMatchingInformationDialogQuestions([
-        {
-          ...createEmptyMatchingInformationQuestion(paragraphLabels),
-          questionNumber: getNextReadingQuestionNumber([], existingQuestionNumbers),
-        },
-      ]);
+      setMatchingInformationDialogQuestions([createEmptyMatchingInformationQuestion()]);
+      setMatchingInformationDialogInstructions("");
+      setMatchingInformationDialogQuestionsText("");
+      setMatchingInformationDialogPossibleAnswersText("");
       setMatchingInformationDialogError("");
       setReadingTestError("");
       setReadingQuestionTypeSelections((currentSelections) => ({
@@ -1633,7 +1735,31 @@ export default function CreatorPage() {
 
   function handleCloseMatchingInformationDialog() {
     setIsMatchingInformationDialogOpen(false);
+    setMatchingInformationDialogInstructions("");
+    setMatchingInformationDialogQuestionsText("");
+    setMatchingInformationDialogPossibleAnswersText("");
     setMatchingInformationDialogError("");
+  }
+
+  function syncMatchingInformationQuestions({
+    questionsText,
+    possibleAnswersText,
+    previousQuestions = [],
+  }) {
+    const parsedQuestions = parseMatchingQuestionLines(questionsText);
+    const possibleAnswers = parseNonEmptyLines(possibleAnswersText);
+
+    setMatchingInformationDialogQuestions(
+      parsedQuestions.length > 0
+        ? parsedQuestions.map((question, index) => ({
+            ...question,
+            correctAnswer:
+              possibleAnswers.includes(previousQuestions[index]?.correctAnswer)
+                ? previousQuestions[index].correctAnswer
+                : possibleAnswers[0] || "",
+          }))
+        : [createEmptyMatchingInformationQuestion()]
+    );
   }
 
   function handleAddTfngQuestion() {
@@ -1670,39 +1796,26 @@ export default function CreatorPage() {
     );
   }
 
-  function handleAddMatchingInformationQuestion() {
-    const sectionQuestionsField = `section${matchingInformationDialogSectionNumber}Questions`;
-    const existingSectionQuestions = Array.isArray(
-      readingTestForm[sectionQuestionsField]
-    )
-      ? readingTestForm[sectionQuestionsField]
-      : [];
-    const existingQuestionNumbers = existingSectionQuestions.flatMap(
-      (questionGroup) =>
-        Array.isArray(questionGroup.items)
-          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
-          : []
-    );
-    const paragraphLabels = extractParagraphLabels(
-      readingTestForm[`section${matchingInformationDialogSectionNumber}Text`]
-    );
-
-    setMatchingInformationDialogQuestions((currentQuestions) => [
-      ...currentQuestions,
-      {
-        ...createEmptyMatchingInformationQuestion(paragraphLabels),
-        questionNumber: getNextReadingQuestionNumber(
-          currentQuestions,
-          existingQuestionNumbers
-        ),
-      },
-    ]);
+  function handleChangeMatchingInformationInstructions(value) {
+    setMatchingInformationDialogInstructions(value);
   }
 
-  function handleRemoveMatchingInformationQuestion(questionId) {
-    setMatchingInformationDialogQuestions((currentQuestions) =>
-      currentQuestions.filter((question) => question.id !== questionId)
-    );
+  function handleChangeMatchingInformationPossibleAnswersText(value) {
+    setMatchingInformationDialogPossibleAnswersText(value);
+    syncMatchingInformationQuestions({
+      questionsText: matchingInformationDialogQuestionsText,
+      possibleAnswersText: value,
+      previousQuestions: matchingInformationDialogQuestions,
+    });
+  }
+
+  function handleChangeMatchingInformationQuestionsText(value) {
+    setMatchingInformationDialogQuestionsText(value);
+    syncMatchingInformationQuestions({
+      questionsText: value,
+      possibleAnswersText: matchingInformationDialogPossibleAnswersText,
+      previousQuestions: matchingInformationDialogQuestions,
+    });
   }
 
   function handleChangeMatchingInformationQuestion(questionId, field, value) {
@@ -1844,17 +1957,27 @@ export default function CreatorPage() {
           ? questionGroup.items.map((item) => String(item.questionNumber).trim())
           : []
     );
+    const possibleAnswers = parseNonEmptyLines(
+      matchingInformationDialogPossibleAnswersText
+    );
 
     if (
       matchingInformationDialogQuestions.some(
         (question) =>
           !String(question.questionNumber).trim() ||
           !question.prompt.trim() ||
-          !question.correctParagraph
+          !question.correctAnswer
       )
     ) {
       setMatchingInformationDialogError(
-        "Each matching information question needs a number, text, and correct paragraph."
+        "Each matching activity row needs a number, text, and a correct match."
+      );
+      return;
+    }
+
+    if (possibleAnswers.length === 0) {
+      setMatchingInformationDialogError(
+        "Add at least one selectable answer before saving this matching activity."
       );
       return;
     }
@@ -1890,12 +2013,14 @@ export default function CreatorPage() {
     const newQuestionGroup = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       type: "MATCHING_INFORMATION",
-      title: "Matching Information (to paragraphs)",
+      title: "All Matching Activities",
+      instructions: matchingInformationDialogInstructions.trim(),
+      possibleAnswers,
       items: matchingInformationDialogQuestions.map((question) => ({
         ...question,
         questionNumber: String(question.questionNumber).trim(),
         prompt: question.prompt.trim(),
-        correctParagraph: question.correctParagraph.trim(),
+        correctAnswer: String(question.correctAnswer).trim(),
       })),
     };
 
@@ -1912,6 +2037,9 @@ export default function CreatorPage() {
           getQuestionGroupFirstNumber(rightGroup)
       ),
     }));
+    setMatchingInformationDialogInstructions("");
+    setMatchingInformationDialogPossibleAnswersText("");
+    setMatchingInformationDialogQuestionsText("");
     setMatchingInformationDialogError("");
     setIsMatchingInformationDialogOpen(false);
     setReadingTestError("");
@@ -2240,15 +2368,14 @@ export default function CreatorPage() {
             <MatchingInformationDialog
               sectionNumber={matchingInformationDialogSectionNumber}
               questions={matchingInformationDialogQuestions}
-              paragraphLabels={extractParagraphLabels(
-                readingTestForm[
-                  `section${matchingInformationDialogSectionNumber}Text`
-                ]
-              )}
+              instructions={matchingInformationDialogInstructions}
+              questionsText={matchingInformationDialogQuestionsText}
+              answersText={matchingInformationDialogPossibleAnswersText}
               errorMessage={matchingInformationDialogError}
+              onChangeInstructions={handleChangeMatchingInformationInstructions}
+              onChangeQuestionsText={handleChangeMatchingInformationQuestionsText}
+              onChangeAnswersText={handleChangeMatchingInformationPossibleAnswersText}
               onChangeQuestion={handleChangeMatchingInformationQuestion}
-              onAddQuestion={handleAddMatchingInformationQuestion}
-              onRemoveQuestion={handleRemoveMatchingInformationQuestion}
               onClose={handleCloseMatchingInformationDialog}
               onSave={handleSaveMatchingInformationQuestions}
             />

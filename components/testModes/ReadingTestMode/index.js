@@ -132,6 +132,10 @@ function renderTableQuestion(question, answers, onChange) {
 }
 
 function renderMatchingInformationQuestion(question, answers, onChange) {
+  const possibleAnswers = Array.isArray(question.possibleAnswers)
+    ? question.possibleAnswers
+    : [];
+
   return (
     <div className="mb-6 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
       <p className="mb-2 text-sm font-medium text-base-content/60">
@@ -155,16 +159,33 @@ function renderMatchingInformationQuestion(question, answers, onChange) {
               {item.number ? `${item.number}. ` : ""}
               {item.question}
             </p>
-            <input
-              type="text"
-              value={answers[item.number || index] || ""}
-              onChange={(event) =>
-                onChange(item.number || index, event.target.value.toUpperCase())
-              }
-              className="input input-bordered w-28 uppercase"
-              placeholder="A"
-              maxLength={2}
-            />
+            {possibleAnswers.length > 0 ? (
+              <select
+                className="select select-bordered w-full max-w-md"
+                value={answers[item.number || index] || ""}
+                onChange={(event) =>
+                  onChange(item.number || index, event.target.value)
+                }
+              >
+                <option value="">Select answer</option>
+                {possibleAnswers.map((option) => (
+                  <option key={`${item.number}-${option}`} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={answers[item.number || index] || ""}
+                onChange={(event) =>
+                  onChange(item.number || index, event.target.value.toUpperCase())
+                }
+                className="input input-bordered w-28 uppercase"
+                placeholder="A"
+                maxLength={2}
+              />
+            )}
           </div>
         ))}
       </div>
