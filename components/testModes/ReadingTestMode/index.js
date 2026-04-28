@@ -77,13 +77,55 @@ function renderTfngGroup(question, answers, onChange) {
   );
 }
 
+function getTableCellSegments(cellValue) {
+  const normalizedValue = String(cellValue || "");
+  const matches = [...normalizedValue.matchAll(/(\d+)\s*\.{5,}/g)];
+
+  if (matches.length === 0) {
+    return [{ type: "text", value: normalizedValue }];
+  }
+
+  const segments = [];
+  let lastIndex = 0;
+
+  matches.forEach((match) => {
+    const matchIndex = match.index || 0;
+
+    if (matchIndex > lastIndex) {
+      segments.push({
+        type: "text",
+        value: normalizedValue.slice(lastIndex, matchIndex),
+      });
+    }
+
+    segments.push({
+      type: "blank",
+      questionNumber: match[1],
+    });
+    lastIndex = matchIndex + match[0].length;
+  });
+
+  if (lastIndex < normalizedValue.length) {
+    segments.push({
+      type: "text",
+      value: normalizedValue.slice(lastIndex),
+    });
+  }
+
+  return segments;
+}
+
 function renderTableQuestion(question, answers, onChange) {
   const headers = question.table?.headers || [];
   const rows = question.table?.rows || [];
 
   return (
     <div className="mb-6 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
-      <p className="mb-2 text-sm font-medium text-base-content/60">Table Completion</p>
+      <p className="mb-2 text-sm font-medium text-base-content/60">
+        {question.questionRange
+          ? `Questions ${question.questionRange}`
+          : "Table Completion"}
+      </p>
       {question.instructions ? (
         <p className="mb-4 text-base leading-7 text-base-content">{question.instructions}</p>
       ) : null}
@@ -107,19 +149,26 @@ function renderTableQuestion(question, answers, onChange) {
               <tr key={`row-${rowIndex}`}>
                 {row.cells.map((cell, cellIndex) => (
                   <td key={`cell-${rowIndex}-${cellIndex}`}>
-                    {cellIndex === row.blankIndex ? (
-                      <input
-                        type="text"
-                        value={answers[row.questionNumber || rowIndex] || ""}
-                        onChange={(event) =>
-                          onChange(row.questionNumber || rowIndex, event.target.value)
-                        }
-                        className="input input-bordered w-full"
-                        placeholder={row.questionNumber ? `Q${row.questionNumber}` : "Answer"}
-                      />
-                    ) : (
-                      cell
-                    )}
+                    <div className="whitespace-pre-wrap leading-7">
+                      {getTableCellSegments(cell).map((segment, segmentIndex) =>
+                        segment.type === "blank" ? (
+                          <input
+                            key={`blank-${rowIndex}-${cellIndex}-${segment.questionNumber}-${segmentIndex}`}
+                            type="text"
+                            value={answers[segment.questionNumber] || ""}
+                            onChange={(event) =>
+                              onChange(segment.questionNumber, event.target.value)
+                            }
+                            className="mx-2 inline-flex w-40 rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-sm"
+                            placeholder={`Q${segment.questionNumber}`}
+                          />
+                        ) : (
+                          <span key={`text-${rowIndex}-${cellIndex}-${segmentIndex}`}>
+                            {segment.value}
+                          </span>
+                        )
+                      )}
+                    </div>
                   </td>
                 ))}
               </tr>

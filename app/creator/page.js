@@ -263,12 +263,18 @@ function flattenSectionQuestionItems(questionGroups = []) {
               ? "Summary Completion"
               : questionGroup.type === "MULTIPLE_CHOICE"
                 ? "Multiple Choice"
+                : questionGroup.type === "TABLE"
+                  ? "Table Completion"
                 : "Question",
       sourceText:
         questionGroup.type === "SUMMARY_COMPLETION"
           ? questionGroup.summaryText || ""
           : questionGroup.type === "MULTIPLE_CHOICE"
             ? questionGroup.sourceText || ""
+            : questionGroup.type === "TABLE"
+              ? (questionGroup.tableRows || [])
+                  .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
+                  .join(" ")
             : "",
     }));
   });
@@ -417,6 +423,63 @@ function parseMatchingQuestionLines(value) {
       prompt: line,
     };
   });
+}
+
+function createEmptyTableCompletionRow(columnCount = 2) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    cells: Array.from({ length: Math.max(1, columnCount) }, () => ""),
+  };
+}
+
+function buildTableCellPreviewText(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractTableCompletionQuestions(tableRows = [], previousQuestions = []) {
+  const extractedQuestions = [];
+
+  tableRows.forEach((row, rowIndex) => {
+    const cells = Array.isArray(row?.cells) ? row.cells : [];
+
+    cells.forEach((cell, cellIndex) => {
+      const matches = [...String(cell || "").matchAll(/(\d+)\s*\.{5,}/g)];
+
+      matches.forEach((match, blankOrder) => {
+        const questionNumber = String(match[1] || "").trim();
+        const matchingPreviousQuestion =
+          previousQuestions.find(
+            (previousQuestion) =>
+              String(previousQuestion.questionNumber).trim() === questionNumber
+          ) ||
+          previousQuestions.find(
+            (previousQuestion) =>
+              previousQuestion.rowId === row.id &&
+              Number(previousQuestion.cellIndex) === cellIndex &&
+              Number(previousQuestion.blankOrder) === blankOrder
+          );
+
+        extractedQuestions.push({
+          id:
+            matchingPreviousQuestion?.id ||
+            `${Date.now()}-${rowIndex}-${cellIndex}-${blankOrder}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
+          questionNumber,
+          correctAnswer: matchingPreviousQuestion?.correctAnswer || "",
+          rowId: row.id,
+          rowIndex,
+          cellIndex,
+          blankOrder,
+          prompt: buildTableCellPreviewText(cell),
+        });
+      });
+    });
+  });
+
+  return extractedQuestions;
 }
 
 function createEmptyReadingForm() {
@@ -575,6 +638,46 @@ function createReadingFormFromTest(test) {
                         correctAnswer: question.correctAnswer || "",
                       }))
                     : [],
+                },
+              ];
+            }
+
+            if (questionGroup.type === "TABLE") {
+              const tableRows = Array.isArray(questionGroup.table?.rows)
+                ? questionGroup.table.rows.map((row, rowIndex) => ({
+                    id: `${Date.now()}-${rowIndex}-${Math.random()
+                      .toString(36)
+                      .slice(2, 8)}`,
+                    cells: Array.isArray(row?.cells) ? row.cells : [""],
+                  }))
+                : [createEmptyTableCompletionRow()];
+
+              const detectedItems = extractTableCompletionQuestions(
+                tableRows,
+                Array.isArray(questionGroup.questions)
+                  ? questionGroup.questions.map((question) => ({
+                      id:
+                        question.id ||
+                        `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                      questionNumber: String(question.number || ""),
+                      correctAnswer: question.correctAnswer || "",
+                    }))
+                  : []
+              );
+
+              return [
+                {
+                  id:
+                    questionGroup.id ||
+                    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  type: "TABLE",
+                  title: questionGroup.title || "Table Completion",
+                  instructions: questionGroup.instructions || "",
+                  tableHeaders: Array.isArray(questionGroup.table?.headers)
+                    ? questionGroup.table.headers
+                    : ["", ""],
+                  tableRows,
+                  items: detectedItems,
                 },
               ];
             }
@@ -1326,6 +1429,19 @@ function ReadingTestPanel({
                                 </p>
                                 <p className="mt-3 text-sm font-medium text-primary">
                                   Correct match: {item.correctAnswer || "Not set"}
+                                </p>
+                              </>
+                            ) : item.questionType === "TABLE" ? (
+                              <>
+                                <p className="mt-2 text-sm leading-7 text-base-content/70">
+                                  {item.prompt
+                                    ? `${item.prompt.slice(0, 180)}${
+                                        item.prompt.length > 180 ? "..." : ""
+                                      }`
+                                    : "No table cell text added yet."}
+                                </p>
+                                <p className="mt-3 text-sm font-medium text-primary">
+                                  Exact answer: {item.correctAnswer || "Not set"}
                                 </p>
                               </>
                             ) : (
@@ -2261,6 +2377,279 @@ function MultipleChoiceDialog({
   );
 }
 
+function TableCompletionDialog({
+  sectionNumber,
+  instructions,
+  headers,
+  rows,
+  questions,
+  errorMessage,
+  onChangeInstructions,
+  onAddColumn,
+  onRemoveColumn,
+  onChangeHeader,
+  onAddRow,
+  onRemoveRow,
+  onChangeCell,
+  onChangeQuestion,
+  onClose,
+  onSave,
+}) {
+  const [isPortalReady, setIsPortalReady] = useState(false);
+
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  if (!isPortalReady) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "16px",
+        overflowY: "auto",
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-6xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+              Section {sectionNumber}
+            </p>
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Table Completion
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            aria-label="Close table completion dialog"
+            onClick={onClose}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
+          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+            Build the table first, then type each numbered blank directly inside the right cell using at least five dots, like 5 ........ . Every detected numbered blank becomes a student answer field automatically, including multiple blanks in the same cell.
+          </div>
+
+          <section className="rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+            <div className="grid gap-6">
+              <label className="form-control">
+                <span className="label-text mb-2 font-medium text-white">
+                  Instructions
+                </span>
+                <textarea
+                  className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                  placeholder="Enter the instructions students should see."
+                  value={instructions}
+                  onChange={(event) => onChangeInstructions(event.target.value)}
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+                  onClick={onAddColumn}
+                >
+                  Add Column
+                </button>
+                <button
+                  type="button"
+                  className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+                  onClick={onAddRow}
+                >
+                  Add Row
+                </button>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-[#233447] bg-[#0f1720] p-4">
+                <table className="w-full min-w-[720px] border-separate border-spacing-0">
+                  <thead>
+                    <tr>
+                      {headers.map((header, headerIndex) => (
+                        <th
+                          key={`table-header-${headerIndex}`}
+                          className="border border-[#233447] bg-[#18232f] p-3 align-top"
+                        >
+                          <div className="space-y-3">
+                            <input
+                              type="text"
+                              className={`${darkInputClassName} w-full`}
+                              placeholder={`Column ${headerIndex + 1} heading`}
+                              value={header}
+                              onChange={(event) =>
+                                onChangeHeader(headerIndex, event.target.value)
+                              }
+                            />
+                            {headers.length > 1 ? (
+                              <button
+                                type="button"
+                                className="btn btn-sm rounded-xl border-[#5b2a38] bg-transparent text-white hover:border-[#7a3247] hover:bg-white/5"
+                                onClick={() => onRemoveColumn(headerIndex)}
+                              >
+                                Remove Column
+                              </button>
+                            ) : null}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, rowIndex) => (
+                      <tr key={row.id}>
+                        {row.cells.map((cell, cellIndex) => (
+                          <td
+                            key={`${row.id}-${cellIndex}`}
+                            className="border border-[#233447] p-3 align-top"
+                          >
+                            <textarea
+                              className={`${darkTextareaClassName} min-h-28 w-full leading-7`}
+                              placeholder={`Row ${rowIndex + 1}, column ${cellIndex + 1}`}
+                              value={cell}
+                              onChange={(event) =>
+                                onChangeCell(row.id, cellIndex, event.target.value)
+                              }
+                            />
+                          </td>
+                        ))}
+                        <td className="p-3 align-top">
+                          {rows.length > 1 ? (
+                            <button
+                              type="button"
+                              className="btn btn-sm rounded-xl border-[#5b2a38] bg-transparent text-white hover:border-[#7a3247] hover:bg-white/5"
+                              onClick={() => onRemoveRow(row.id)}
+                            >
+                              Remove Row
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="rounded-2xl bg-[#0f1720] p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="font-medium text-white">Detected Answers</p>
+                  <div className="badge badge-outline">{questions.length} answers</div>
+                </div>
+
+                {questions.length > 0 ? (
+                  <div className="space-y-4">
+                    {questions.map((question) => (
+                      <div
+                        key={question.id}
+                        className="grid gap-3 rounded-2xl border border-[#233447] bg-[#111a24] p-4 md:grid-cols-[120px_minmax(0,1fr)]"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-white/60">
+                            Question
+                          </p>
+                          <p className="mt-1 text-lg font-semibold">
+                            {question.questionNumber}
+                          </p>
+                        </div>
+                        <label className="form-control">
+                          <span className="label-text mb-2 font-medium text-white">
+                            Enter Correct Answer
+                          </span>
+                          <input
+                            type="text"
+                            className={`${darkInputClassName} w-full`}
+                            placeholder={`Enter the exact answer for Question ${question.questionNumber}`}
+                            value={question.correctAnswer}
+                            onChange={(event) =>
+                              onChangeQuestion(question.id, event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-7 text-white/60">
+                    No answer fields detected yet. Add a number followed by at least five dots inside any table cell to generate them automatically.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-3 px-6 py-5 md:px-7">
+          {errorMessage ? (
+            <p className="mr-auto self-center text-sm font-medium text-error">
+              {errorMessage}
+            </p>
+          ) : null}
+          <button type="button" className="btn px-5" onClick={onClose}>
+            Cancel
+          </button>
+          <CreatorActionButton onClick={onSave}>
+            Save Questions
+          </CreatorActionButton>
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
+function CenteredAlertDialog({ message, onClose }) {
+  const [isPortalReady, setIsPortalReady] = useState(false);
+
+  useEffect(() => {
+    setIsPortalReady(true);
+  }, []);
+
+  if (!isPortalReady || !message) {
+    return null;
+  }
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        backgroundColor: "rgba(0, 0, 0, 0.72)",
+        backdropFilter: "blur(6px)",
+      }}
+    >
+      <section className="w-full max-w-md rounded-3xl border border-[#233447] bg-[#18232f] p-6 text-white shadow-2xl">
+        <h3 className="text-xl font-semibold tracking-tight">
+          Builder Not Available
+        </h3>
+        <p className="mt-3 leading-7 text-white/80">{message}</p>
+        <div className="mt-6 flex justify-end">
+          <CreatorActionButton onClick={onClose}>OK</CreatorActionButton>
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -2273,6 +2662,7 @@ export default function CreatorPage() {
   const [isDeletingReadingTest, setIsDeletingReadingTest] = useState(false);
   const [readingTestError, setReadingTestError] = useState("");
   const [readingTestNotice, setReadingTestNotice] = useState("");
+  const [readingBuilderNotice, setReadingBuilderNotice] = useState("");
   const [editingReadingTestId, setEditingReadingTestId] = useState("");
   const [readingTestForm, setReadingTestForm] = useState(createEmptyReadingForm);
   const [readingQuestionTypeSelections, setReadingQuestionTypeSelections] =
@@ -2320,6 +2710,23 @@ export default function CreatorPage() {
   const [multipleChoiceDialogQuestions, setMultipleChoiceDialogQuestions] =
     useState([]);
   const [multipleChoiceDialogError, setMultipleChoiceDialogError] =
+    useState("");
+  const [isTableCompletionDialogOpen, setIsTableCompletionDialogOpen] =
+    useState(false);
+  const [tableCompletionDialogSectionNumber, setTableCompletionDialogSectionNumber] =
+    useState(1);
+  const [tableCompletionDialogInstructions, setTableCompletionDialogInstructions] =
+    useState("");
+  const [tableCompletionDialogHeaders, setTableCompletionDialogHeaders] = useState([
+    "",
+    "",
+  ]);
+  const [tableCompletionDialogRows, setTableCompletionDialogRows] = useState([
+    createEmptyTableCompletionRow(),
+  ]);
+  const [tableCompletionDialogQuestions, setTableCompletionDialogQuestions] =
+    useState([]);
+  const [tableCompletionDialogError, setTableCompletionDialogError] =
     useState("");
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
   const [writingTests, setWritingTests] = useState([]);
@@ -2413,9 +2820,15 @@ export default function CreatorPage() {
     if (activeItem.key === "reading-test") {
       setReadingTestError("");
       setReadingTestNotice("");
+      setReadingBuilderNotice("");
       setEditingReadingTestId("");
       setReadingTestForm(createEmptyReadingForm());
       setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
+      setIsTfngDialogOpen(false);
+      setIsMatchingInformationDialogOpen(false);
+      setIsSummaryCompletionDialogOpen(false);
+      setIsMultipleChoiceDialogOpen(false);
+      setIsTableCompletionDialogOpen(false);
       setIsReadingTestComposerOpen(true);
       return;
     }
@@ -2474,6 +2887,7 @@ export default function CreatorPage() {
 
     setIsReadingTestComposerOpen(false);
     setReadingTestError("");
+    setReadingBuilderNotice("");
     setReadingTestNotice("");
     setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
     setIsTfngDialogOpen(false);
@@ -2493,6 +2907,13 @@ export default function CreatorPage() {
     setMultipleChoiceDialogText("");
     setMultipleChoiceDialogQuestions([]);
     setMultipleChoiceDialogError("");
+    setIsTableCompletionDialogOpen(false);
+    setTableCompletionDialogInstructions("");
+    setTableCompletionDialogHeaders(["", ""]);
+    setTableCompletionDialogRows([createEmptyTableCompletionRow()]);
+    setTableCompletionDialogQuestions([]);
+    setTableCompletionDialogError("");
+    setReadingBuilderNotice("");
     setEditingReadingTestId("");
   }
 
@@ -2579,21 +3000,40 @@ export default function CreatorPage() {
       return;
     }
 
+    if (questionType === "Table Completion") {
+      setTableCompletionDialogSectionNumber(sectionNumber);
+      setTableCompletionDialogInstructions("");
+      setTableCompletionDialogHeaders(["", ""]);
+      setTableCompletionDialogRows([createEmptyTableCompletionRow()]);
+      setTableCompletionDialogQuestions([]);
+      setTableCompletionDialogError("");
+      setReadingTestError("");
+      setReadingQuestionTypeSelections((currentSelections) => ({
+        ...currentSelections,
+        [sectionNumber]: "",
+      }));
+      setIsTableCompletionDialogOpen(true);
+      return;
+    }
+
     setReadingQuestionTypeSelections((currentSelections) => ({
       ...currentSelections,
       [sectionNumber]: "",
     }));
-    setReadingTestError(`${questionType} builder is not available yet.`);
+    setReadingTestError("");
+    setReadingBuilderNotice(`${questionType} builder is not available yet.`);
   }
 
   function handleEditReadingTest(test) {
     setReadingTestError("");
+    setReadingBuilderNotice("");
     setReadingTestNotice("");
     setTfngDialogError("");
     setIsTfngDialogOpen(false);
     setIsMatchingInformationDialogOpen(false);
     setIsSummaryCompletionDialogOpen(false);
     setIsMultipleChoiceDialogOpen(false);
+    setIsTableCompletionDialogOpen(false);
     setEditingReadingTestId(test.id);
     setReadingTestForm(createReadingFormFromTest(test));
     setReadingQuestionTypeSelections(createEmptyReadingQuestionTypeSelections());
@@ -2603,6 +3043,10 @@ export default function CreatorPage() {
   function handleCloseTfngDialog() {
     setIsTfngDialogOpen(false);
     setTfngDialogError("");
+  }
+
+  function handleCloseReadingBuilderNotice() {
+    setReadingBuilderNotice("");
   }
 
   function handleCloseMatchingInformationDialog() {
@@ -2627,6 +3071,15 @@ export default function CreatorPage() {
     setMultipleChoiceDialogText("");
     setMultipleChoiceDialogQuestions([]);
     setMultipleChoiceDialogError("");
+  }
+
+  function handleCloseTableCompletionDialog() {
+    setIsTableCompletionDialogOpen(false);
+    setTableCompletionDialogInstructions("");
+    setTableCompletionDialogHeaders(["", ""]);
+    setTableCompletionDialogRows([createEmptyTableCompletionRow()]);
+    setTableCompletionDialogQuestions([]);
+    setTableCompletionDialogError("");
   }
 
   function syncMatchingInformationQuestions({
@@ -2758,6 +3211,97 @@ export default function CreatorPage() {
 
   function handleChangeSummaryCompletionQuestion(questionId, value) {
     setSummaryCompletionDialogQuestions((currentQuestions) =>
+      currentQuestions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              correctAnswer: value,
+            }
+          : question
+      )
+    );
+  }
+
+  function syncTableCompletionQuestions(tableRows, previousQuestions = []) {
+    setTableCompletionDialogQuestions(
+      extractTableCompletionQuestions(tableRows, previousQuestions)
+    );
+  }
+
+  function handleChangeTableCompletionInstructions(value) {
+    setTableCompletionDialogInstructions(value);
+  }
+
+  function handleAddTableCompletionColumn() {
+    setTableCompletionDialogHeaders((currentHeaders) => [...currentHeaders, ""]);
+    setTableCompletionDialogRows((currentRows) =>
+      currentRows.map((row) => ({
+        ...row,
+        cells: [...row.cells, ""],
+      }))
+    );
+  }
+
+  function handleRemoveTableCompletionColumn(columnIndex) {
+    if (tableCompletionDialogHeaders.length <= 1) {
+      return;
+    }
+
+    const nextRows = tableCompletionDialogRows.map((row) => ({
+      ...row,
+      cells: row.cells.filter((_, index) => index !== columnIndex),
+    }));
+
+    setTableCompletionDialogHeaders((currentHeaders) =>
+      currentHeaders.filter((_, index) => index !== columnIndex)
+    );
+    setTableCompletionDialogRows(nextRows);
+    syncTableCompletionQuestions(nextRows, tableCompletionDialogQuestions);
+  }
+
+  function handleChangeTableCompletionHeader(columnIndex, value) {
+    setTableCompletionDialogHeaders((currentHeaders) =>
+      currentHeaders.map((header, index) =>
+        index === columnIndex ? value : header
+      )
+    );
+  }
+
+  function handleAddTableCompletionRow() {
+    setTableCompletionDialogRows((currentRows) => [
+      ...currentRows,
+      createEmptyTableCompletionRow(tableCompletionDialogHeaders.length),
+    ]);
+  }
+
+  function handleRemoveTableCompletionRow(rowId) {
+    if (tableCompletionDialogRows.length <= 1) {
+      return;
+    }
+
+    const nextRows = tableCompletionDialogRows.filter((row) => row.id !== rowId);
+    setTableCompletionDialogRows(nextRows);
+    syncTableCompletionQuestions(nextRows, tableCompletionDialogQuestions);
+  }
+
+  function handleChangeTableCompletionCell(rowId, cellIndex, value) {
+    const nextRows = tableCompletionDialogRows.map((row) =>
+      row.id === rowId
+        ? {
+            ...row,
+            cells: row.cells.map((cell, index) =>
+              index === cellIndex ? value : cell
+            ),
+          }
+        : row
+    );
+
+    setTableCompletionDialogRows(nextRows);
+    syncTableCompletionQuestions(nextRows, tableCompletionDialogQuestions);
+  }
+
+  function handleChangeTableCompletionQuestion(questionId, value) {
+    setTableCompletionDialogQuestions((currentQuestions) =>
       currentQuestions.map((question) =>
         question.id === questionId
           ? {
@@ -2911,6 +3455,42 @@ export default function CreatorPage() {
         .map((questionGroup) => {
           if (questionGroup.id !== groupId) {
             return questionGroup;
+          }
+
+          if (questionGroup.type === "TABLE") {
+            const targetItem = Array.isArray(questionGroup.items)
+              ? questionGroup.items.find((item) => item.id === itemId)
+              : null;
+
+            return {
+              ...questionGroup,
+              tableRows: Array.isArray(questionGroup.tableRows)
+                ? questionGroup.tableRows.map((row) =>
+                    row.id !== targetItem?.rowId
+                      ? row
+                      : {
+                          ...row,
+                          cells: row.cells.map((cell, cellIndex) =>
+                            cellIndex !== Number(targetItem?.cellIndex)
+                              ? cell
+                              : String(cell || "").replace(
+                                  new RegExp(
+                                    `${String(targetItem?.questionNumber || "").replace(
+                                      /[.*+?^${}()|[\]\\]/g,
+                                      "\\$&"
+                                    )}\\s*\\.{5,}`,
+                                    "g"
+                                  ),
+                                  ""
+                                )
+                          ),
+                        }
+                  )
+                : [],
+              items: Array.isArray(questionGroup.items)
+                ? questionGroup.items.filter((item) => item.id !== itemId)
+                : [],
+            };
           }
 
           return {
@@ -3217,6 +3797,130 @@ export default function CreatorPage() {
     setSummaryCompletionDialogQuestions([]);
     setSummaryCompletionDialogError("");
     setIsSummaryCompletionDialogOpen(false);
+    setReadingTestError("");
+  }
+
+  function handleSaveTableCompletionQuestions() {
+    const normalizedNumbers = tableCompletionDialogQuestions.map((question) =>
+      String(question.questionNumber).trim()
+    );
+    const sectionQuestionsField = `section${tableCompletionDialogSectionNumber}Questions`;
+    const existingSectionQuestions = Array.isArray(
+      readingTestForm[sectionQuestionsField]
+    )
+      ? readingTestForm[sectionQuestionsField]
+      : [];
+    const existingQuestionNumbers = existingSectionQuestions.flatMap(
+      (questionGroup) =>
+        Array.isArray(questionGroup.items)
+          ? questionGroup.items.map((item) => String(item.questionNumber).trim())
+          : []
+    );
+    const normalizedHeaders = tableCompletionDialogHeaders.map((header) =>
+      String(header || "").trim()
+    );
+    const normalizedRows = tableCompletionDialogRows.map((row) => ({
+      ...row,
+      cells: Array.isArray(row.cells)
+        ? row.cells.map((cell) => String(cell || "").trim())
+        : [""],
+    }));
+
+    if (normalizedHeaders.some((header) => !header)) {
+      setTableCompletionDialogError("Each table column needs a heading.");
+      return;
+    }
+
+    if (
+      normalizedRows.length === 0 ||
+      normalizedRows.every((row) => row.cells.every((cell) => !cell))
+    ) {
+      setTableCompletionDialogError("Add at least one populated table row before saving.");
+      return;
+    }
+
+    if (tableCompletionDialogQuestions.length === 0) {
+      setTableCompletionDialogError(
+        "No answer fields were detected. Add a number followed by at least five dots inside a table cell."
+      );
+      return;
+    }
+
+    if (
+      tableCompletionDialogQuestions.some(
+        (question) =>
+          !String(question.questionNumber).trim() ||
+          !String(question.correctAnswer).trim()
+      )
+    ) {
+      setTableCompletionDialogError(
+        "Every detected table completion answer must be filled in."
+      );
+      return;
+    }
+
+    if (new Set(normalizedNumbers).size !== normalizedNumbers.length) {
+      setTableCompletionDialogError(
+        "Each table completion question number must be unique."
+      );
+      return;
+    }
+
+    if (
+      tableCompletionDialogQuestions.some((question) => {
+        const questionNumber = Number(question.questionNumber);
+        return !Number.isInteger(questionNumber) || questionNumber < 1 || questionNumber > 40;
+      })
+    ) {
+      setTableCompletionDialogError("Question numbers must be between 1 and 40.");
+      return;
+    }
+
+    if (
+      normalizedNumbers.some((questionNumber) =>
+        existingQuestionNumbers.includes(questionNumber)
+      )
+    ) {
+      setTableCompletionDialogError(
+        "One or more question numbers are already used in this section."
+      );
+      return;
+    }
+
+    const newQuestionGroup = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: "TABLE",
+      title: "Table Completion",
+      instructions: tableCompletionDialogInstructions.trim(),
+      tableHeaders: normalizedHeaders,
+      tableRows: normalizedRows,
+      items: tableCompletionDialogQuestions.map((question) => ({
+        ...question,
+        questionNumber: String(question.questionNumber).trim(),
+        correctAnswer: String(question.correctAnswer).trim(),
+        prompt: buildTableCellPreviewText(question.prompt),
+      })),
+    };
+
+    setReadingTestForm((currentForm) => ({
+      ...currentForm,
+      [sectionQuestionsField]: [
+        ...(Array.isArray(currentForm[sectionQuestionsField])
+          ? currentForm[sectionQuestionsField]
+          : []),
+        newQuestionGroup,
+      ].sort(
+        (leftGroup, rightGroup) =>
+          getQuestionGroupFirstNumber(leftGroup) -
+          getQuestionGroupFirstNumber(rightGroup)
+      ),
+    }));
+    setTableCompletionDialogInstructions("");
+    setTableCompletionDialogHeaders(["", ""]);
+    setTableCompletionDialogRows([createEmptyTableCompletionRow()]);
+    setTableCompletionDialogQuestions([]);
+    setTableCompletionDialogError("");
+    setIsTableCompletionDialogOpen(false);
     setReadingTestError("");
   }
 
@@ -3638,6 +4342,11 @@ export default function CreatorPage() {
 
       <main className="flex-1 overflow-x-auto">
         <div className="min-h-screen p-6 md:p-8">
+          <CenteredAlertDialog
+            message={readingBuilderNotice}
+            onClose={handleCloseReadingBuilderNotice}
+          />
+
           {isTfngDialogOpen ? (
             <TfngQuestionDialog
               sectionNumber={tfngDialogSectionNumber}
@@ -3699,6 +4408,27 @@ export default function CreatorPage() {
               onChangeQuestionAnswer={handleChangeMultipleChoiceQuestionAnswer}
               onClose={handleCloseMultipleChoiceDialog}
               onSave={handleSaveMultipleChoiceQuestions}
+            />
+          ) : null}
+
+          {isTableCompletionDialogOpen ? (
+            <TableCompletionDialog
+              sectionNumber={tableCompletionDialogSectionNumber}
+              instructions={tableCompletionDialogInstructions}
+              headers={tableCompletionDialogHeaders}
+              rows={tableCompletionDialogRows}
+              questions={tableCompletionDialogQuestions}
+              errorMessage={tableCompletionDialogError}
+              onChangeInstructions={handleChangeTableCompletionInstructions}
+              onAddColumn={handleAddTableCompletionColumn}
+              onRemoveColumn={handleRemoveTableCompletionColumn}
+              onChangeHeader={handleChangeTableCompletionHeader}
+              onAddRow={handleAddTableCompletionRow}
+              onRemoveRow={handleRemoveTableCompletionRow}
+              onChangeCell={handleChangeTableCompletionCell}
+              onChangeQuestion={handleChangeTableCompletionQuestion}
+              onClose={handleCloseTableCompletionDialog}
+              onSave={handleSaveTableCompletionQuestions}
             />
           ) : null}
 
