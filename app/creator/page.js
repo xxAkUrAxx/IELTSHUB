@@ -83,6 +83,7 @@ const sidebarSections = [
 
 const allSidebarItems = sidebarSections.flatMap((section) => section.items);
 
+// Render sidebar item
 function SidebarItem({
   item,
   isCollapsed,
@@ -109,6 +110,7 @@ function SidebarItem({
   );
 }
 
+// Render sidebar section
 function SidebarSection({
   label,
   icon: Icon,
@@ -166,6 +168,7 @@ function SidebarSection({
   );
 }
 
+// Render primary action button
 function CreatorActionButton({ onClick, children }) {
   return (
     <button
@@ -185,6 +188,7 @@ function CreatorActionButton({ onClick, children }) {
   );
 }
 
+// Render creator dashboard shell
 export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const readingTestCreatorRef = useRef(null);

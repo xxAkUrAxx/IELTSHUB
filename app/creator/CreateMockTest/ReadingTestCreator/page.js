@@ -17,10 +17,12 @@ import {
   saveReadingTest,
 } from "../../../../lib/tests/reading-tests";
 
+// Get today's date
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
+// Run promise with timeout
 async function withTimeout(promise, timeoutMs, message) {
   let timerId;
 
@@ -37,6 +39,7 @@ async function withTimeout(promise, timeoutMs, message) {
   }
 }
 
+// Format created date
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
     return "Unknown date";
@@ -54,6 +57,7 @@ function formatCreatedAt(createdAt) {
   return parsedDate.toLocaleDateString();
 }
 
+// Color difficulty badge
 function getDifficultyTextColor(difficulty) {
   const normalizedDifficulty = String(difficulty).toLowerCase();
 
@@ -109,6 +113,7 @@ const matchingActivityOptions = [
   },
 ];
 
+// Create empty TFNG question
 function createEmptyTfngQuestion(answerType = "TFNG") {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -119,6 +124,7 @@ function createEmptyTfngQuestion(answerType = "TFNG") {
   };
 }
 
+// Find next question number
 function getNextReadingQuestionNumber(questions, existingQuestionNumbers = []) {
   const allNumbers = [
     ...existingQuestionNumbers,
@@ -133,6 +139,7 @@ function getNextReadingQuestionNumber(questions, existingQuestionNumbers = []) {
   return String(Math.min(40, highestQuestionNumber + 1));
 }
 
+// Sort groups by number
 function getQuestionGroupFirstNumber(questionGroup) {
   if (!Array.isArray(questionGroup?.items) || questionGroup.items.length === 0) {
     return Number.POSITIVE_INFINITY;
@@ -142,6 +149,7 @@ function getQuestionGroupFirstNumber(questionGroup) {
   return Number.isInteger(firstNumber) ? firstNumber : Number.POSITIVE_INFINITY;
 }
 
+// Sort items numerically
 function sortQuestionItemsByNumber(items = []) {
   return [...items].sort((leftItem, rightItem) => {
     const leftNumber = Number(leftItem?.questionNumber);
@@ -163,6 +171,7 @@ function sortQuestionItemsByNumber(items = []) {
   });
 }
 
+// Flatten saved question items
 function flattenSectionQuestionItems(questionGroups = []) {
   return questionGroups.flatMap((questionGroup) => {
     const sortedItems = sortQuestionItemsByNumber(questionGroup.items);
@@ -197,6 +206,7 @@ function flattenSectionQuestionItems(questionGroups = []) {
   });
 }
 
+// Extract passage paragraph labels
 function extractParagraphLabels(passageText) {
   const matches = String(passageText || "")
     .split(/\r?\n/)
@@ -210,6 +220,7 @@ function extractParagraphLabels(passageText) {
   return [...new Set(matches)];
 }
 
+// Create matching question row
 function createEmptyMatchingInformationQuestion(paragraphLabels = []) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -219,6 +230,7 @@ function createEmptyMatchingInformationQuestion(paragraphLabels = []) {
   };
 }
 
+// Detect summary blanks
 function parseSummaryCompletionQuestions(summaryText) {
   const matches = [...String(summaryText || "").matchAll(/(\d+)\s*\.{5,}/g)];
 
@@ -229,6 +241,7 @@ function parseSummaryCompletionQuestions(summaryText) {
   }));
 }
 
+// Parse multiple choice block
 function parseMultipleChoiceQuestions(sourceText) {
   const lines = String(sourceText || "")
     .split(/\r?\n/)
@@ -289,6 +302,7 @@ function parseMultipleChoiceQuestions(sourceText) {
   }));
 }
 
+// Create multiple choice question
 function createEmptyMultipleChoiceQuestion() {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -304,6 +318,7 @@ function createEmptyMultipleChoiceQuestion() {
   };
 }
 
+// Label matching activity type
 function getMatchingActivityLabel(activityType) {
   return (
     matchingActivityOptions.find((option) => option.value === activityType)
@@ -311,10 +326,12 @@ function getMatchingActivityLabel(activityType) {
   );
 }
 
+// Build paragraph prompt defaults
 function buildDefaultParagraphPromptLines(paragraphLabels = []) {
   return paragraphLabels.map((label) => `Paragraph ${label}`).join("\n");
 }
 
+// Split non-empty lines
 function parseNonEmptyLines(value) {
   return String(value || "")
     .split(/\r?\n/)
@@ -322,6 +339,7 @@ function parseNonEmptyLines(value) {
     .filter(Boolean);
 }
 
+// Parse matching question lines
 function parseMatchingQuestionLines(value) {
   return parseNonEmptyLines(value).map((line, index) => {
     const match = line.match(/^(\d+)\s+(.+)$/);
@@ -342,6 +360,7 @@ function parseMatchingQuestionLines(value) {
   });
 }
 
+// Create empty table row
 function createEmptyTableCompletionRow(columnCount = 2) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -349,12 +368,14 @@ function createEmptyTableCompletionRow(columnCount = 2) {
   };
 }
 
+// Clean cell preview text
 function buildTableCellPreviewText(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+// Detect table blanks
 function extractTableCompletionQuestions(tableRows = [], previousQuestions = []) {
   const extractedQuestions = [];
 
@@ -399,6 +420,7 @@ function extractTableCompletionQuestions(tableRows = [], previousQuestions = [])
   return extractedQuestions;
 }
 
+// Create empty reading form
 function createEmptyReadingForm() {
   return {
     testName: "",
@@ -419,6 +441,7 @@ function createEmptyReadingForm() {
   };
 }
 
+// Reset question selectors
 function createEmptyReadingQuestionTypeSelections() {
   return {
     1: "",
@@ -427,6 +450,7 @@ function createEmptyReadingQuestionTypeSelections() {
   };
 }
 
+// Rebuild form from test
 function createReadingFormFromTest(test) {
   const nextForm = createEmptyReadingForm();
   const matchingDifficulty =
@@ -607,6 +631,7 @@ function createReadingFormFromTest(test) {
   return nextForm;
 }
 
+// Render primary action button
 function CreatorActionButton({ onClick, children }) {
   return (
     <button
@@ -633,6 +658,7 @@ const darkInputClassName =
 const darkTextareaClassName =
   "textarea border-[#233447] bg-[#1b2a3a] px-4 py-3 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none";
 
+// Render reading test card
 function ReadingTestCard({ test, onDelete, onEdit }) {
   const reconstructedForm = createReadingFormFromTest(test);
   const reconstructedQuestionCount = [1, 2, 3].reduce((count, sectionNumber) => {
@@ -713,6 +739,7 @@ function ReadingTestCard({ test, onDelete, onEdit }) {
   );
 }
 
+// Render reading test editor
 function ReadingTestPanel({
   formValues,
   questionTypeSelections,
@@ -1111,6 +1138,7 @@ function ReadingTestPanel({
   );
 }
 
+// Render matching dialog
 function MatchingInformationDialog({
   sectionNumber,
   questions,
@@ -1385,6 +1413,7 @@ function MatchingInformationDialog({
   );
 }
 
+// Render TFNG dialog
 function TfngQuestionDialog({
   sectionNumber,
   questions,
@@ -1590,6 +1619,7 @@ function TfngQuestionDialog({
   );
 }
 
+// Render summary dialog
 function SummaryCompletionDialog({
   sectionNumber,
   instructions,
@@ -1745,6 +1775,7 @@ function SummaryCompletionDialog({
   );
 }
 
+// Render multiple choice dialog
 function MultipleChoiceDialog({
   sectionNumber,
   instructions,
@@ -1963,6 +1994,7 @@ function MultipleChoiceDialog({
   );
 }
 
+// Render table dialog
 function TableCompletionDialog({
   sectionNumber,
   instructions,
@@ -2197,6 +2229,7 @@ function TableCompletionDialog({
   );
 }
 
+// Render alert dialog
 function CenteredAlertDialog({ message, onClose }) {
   const [isPortalReady, setIsPortalReady] = useState(false);
 
@@ -2236,6 +2269,7 @@ function CenteredAlertDialog({ message, onClose }) {
   );
 }
 
+// Manage reading test feature
 const ReadingTestCreator = forwardRef(function ReadingTestCreator(
   { isSidebarCollapsed = false },
   ref

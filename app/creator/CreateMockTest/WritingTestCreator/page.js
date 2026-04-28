@@ -13,16 +13,19 @@ import {
   saveWritingTest,
 } from "../../../../lib/tests/writing-tests";
 
+// Get today's date
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
+// Release blob preview URL
 function revokePreviewUrl(url) {
   if (typeof url === "string" && url.startsWith("blob:")) {
     URL.revokeObjectURL(url);
   }
 }
 
+// Run promise with timeout
 async function withTimeout(promise, timeoutMs, message) {
   let timerId;
 
@@ -39,6 +42,7 @@ async function withTimeout(promise, timeoutMs, message) {
   }
 }
 
+// Format created date
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
     return "Unknown date";
@@ -56,6 +60,7 @@ function formatCreatedAt(createdAt) {
   return parsedDate.toLocaleDateString();
 }
 
+// Color difficulty badge
 function getDifficultyTextColor(difficulty) {
   const normalizedDifficulty = String(difficulty).toLowerCase();
 
@@ -76,6 +81,7 @@ const difficultyOptions = [
   { value: "hard", label: "Hard", color: "#AE2448" },
 ];
 
+// Render primary action button
 function CreatorActionButton({ onClick, children }) {
   return (
     <button
@@ -95,6 +101,7 @@ function CreatorActionButton({ onClick, children }) {
   );
 }
 
+// Render writing test card
 function WritingTestCard({ test, onDelete, onEdit }) {
   return (
     <article className="card border border-base-300 bg-base-100 shadow-sm">
@@ -140,6 +147,7 @@ function WritingTestCard({ test, onDelete, onEdit }) {
   );
 }
 
+// Render writing test editor
 function WritingTestPanel({
   formValues,
   selectedImageName,
@@ -370,6 +378,7 @@ const initialWritingTestForm = () => ({
   part2Prompt: "",
 });
 
+// Manage writing test feature
 const WritingTestCreator = forwardRef(function WritingTestCreator(_, ref) {
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
   const [writingTests, setWritingTests] = useState([]);
