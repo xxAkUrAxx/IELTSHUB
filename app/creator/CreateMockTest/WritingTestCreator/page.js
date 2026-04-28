@@ -81,6 +81,31 @@ const difficultyOptions = [
   { value: "hard", label: "Hard", color: "#AE2448" },
 ];
 
+function getWritingTheme(themeMode = "dark") {
+  const isLightMode = themeMode === "light";
+
+  return {
+    inputClass: isLightMode
+      ? "input w-full border-[#bfd0ea] bg-white px-4 text-slate-900 placeholder:text-slate-400 focus:border-[#7aa2d6] focus:outline-none"
+      : "input w-full border-[#233447] bg-[#1b2a3a] px-4 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none",
+    selectClass: isLightMode
+      ? "select w-full border-[#bfd0ea] bg-white px-4 text-slate-900 focus:border-[#7aa2d6] focus:outline-none"
+      : "select w-full border-[#233447] bg-[#1b2a3a] px-4 text-white focus:border-[#3b5168] focus:outline-none",
+    textareaClass: isLightMode
+      ? "textarea w-full border-[#bfd0ea] bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#7aa2d6] focus:outline-none"
+      : "textarea w-full border-[#233447] bg-[#1b2a3a] px-4 py-3 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none",
+    fileInputClass: isLightMode
+      ? "file-input w-full border-[#bfd0ea] bg-white text-slate-900 file:bg-[#edf4ff] file:text-slate-700 focus:border-[#7aa2d6] focus:outline-none"
+      : "file-input w-full border-[#233447] bg-[#1b2a3a] text-white file:bg-[#18232f] file:text-white focus:border-[#3b5168] focus:outline-none",
+    closeButtonClass: isLightMode
+      ? "btn rounded-xl border-[#94a3b8] bg-transparent px-5 text-slate-700 hover:border-[#64748b] hover:bg-slate-200/60"
+      : "btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5",
+    selectStyle: isLightMode
+      ? { backgroundColor: "#ffffff", color: "#0f172a" }
+      : { backgroundColor: "#1b2a3a", color: "#ffffff" },
+  };
+}
+
 // Render primary action button
 function CreatorActionButton({ onClick, children }) {
   return (
@@ -156,11 +181,16 @@ function WritingTestPanel({
   hasNewImageUpload,
   uploadProgress,
   errorMessage,
+  themeMode,
   onClose,
   onChange,
   onImageChange,
   onSave,
 }) {
+  const theme = getWritingTheme(themeMode);
+  const headingColor =
+    themeMode === "light" ? "text-[#1746a2]" : "text-[#8fb4ff]";
+
   return (
     <section className="w-full max-w-5xl rounded-3xl border border-base-300 bg-base-100 shadow-xl">
       <div className="flex items-center justify-between border-b border-base-300 px-6 py-5">
@@ -197,7 +227,7 @@ function WritingTestPanel({
             <span className="label-text mb-2 font-medium">Test Name</span>
             <input
               type="text"
-              className="input input-bordered w-full"
+              className={theme.inputClass}
               placeholder="Enter test name"
               value={formValues.testName}
               onChange={(event) => onChange("testName", event.target.value)}
@@ -207,8 +237,11 @@ function WritingTestPanel({
           <label className="form-control">
             <span className="label-text mb-2 font-medium">Test Difficulty</span>
             <select
-              className="select select-bordered w-full"
-              style={{ color: getDifficultyTextColor(formValues.testDifficulty) }}
+              className={theme.selectClass}
+              style={{
+                ...theme.selectStyle,
+                color: getDifficultyTextColor(formValues.testDifficulty),
+              }}
               value={formValues.testDifficulty}
               onChange={(event) =>
                 onChange("testDifficulty", event.target.value)
@@ -230,7 +263,7 @@ function WritingTestPanel({
             <span className="label-text mb-2 font-medium">Date</span>
             <input
               type="text"
-              className="input input-bordered w-full"
+              className={theme.inputClass}
               value={formValues.date}
               readOnly
             />
@@ -247,7 +280,7 @@ function WritingTestPanel({
 
           <div className="space-y-6">
             <div className="space-y-3">
-              <p className="text-3xl font-black uppercase tracking-[0.18em] text-[#1b2ea8]">
+              <p className={`text-3xl font-black uppercase tracking-[0.18em] ${headingColor}`}>
                 Writing Task 1
               </p>
               <p className="text-lg font-medium">
@@ -258,7 +291,7 @@ function WritingTestPanel({
             <label className="form-control">
               <span className="label-text mb-2 font-medium">Task Prompt</span>
               <textarea
-                className="textarea textarea-bordered min-h-44 w-full leading-7"
+                className={`${theme.textareaClass} min-h-44 leading-7`}
                 placeholder={
                   "Enter the Task 1 prompt here.\n\nUse blank lines, numbering, or extra instructions exactly as you want them to appear."
                 }
@@ -279,7 +312,7 @@ function WritingTestPanel({
               <input
                 type="file"
                 accept="image/*"
-                className="file-input file-input-bordered w-full"
+                className={theme.fileInputClass}
                 onChange={onImageChange}
               />
               <p className="mt-3 text-sm text-base-content/65">
@@ -317,7 +350,7 @@ function WritingTestPanel({
           <div className="rounded-2xl border border-base-300 bg-base-100 p-5">
             <div className="space-y-6">
               <div className="space-y-3">
-                <p className="text-3xl font-black uppercase tracking-[0.18em] text-[#1b2ea8]">
+                <p className={`text-3xl font-black uppercase tracking-[0.18em] ${headingColor}`}>
                   Writing Task 2
                 </p>
                 <p className="text-lg font-medium">
@@ -333,7 +366,7 @@ function WritingTestPanel({
                   Task Prompt
                 </span>
                 <textarea
-                  className="textarea textarea-bordered min-h-52 w-full leading-7"
+                  className={`${theme.textareaClass} min-h-52 leading-7`}
                   placeholder={
                     "Enter the Task 2 prompt here.\n\nUse blank lines, numbering, or extra instructions exactly as you want them to appear."
                   }
@@ -359,7 +392,11 @@ function WritingTestPanel({
             {errorMessage}
           </p>
         ) : null}
-        <button type="button" className="btn" onClick={onClose}>
+        <button
+          type="button"
+          className={theme.closeButtonClass}
+          onClick={onClose}
+        >
           Close
         </button>
         <CreatorActionButton onClick={onSave}>
@@ -379,7 +416,10 @@ const initialWritingTestForm = () => ({
 });
 
 // Manage writing test feature
-const WritingTestCreator = forwardRef(function WritingTestCreator(_, ref) {
+const WritingTestCreator = forwardRef(function WritingTestCreator(
+  { themeMode = "dark" },
+  ref
+) {
   const [isWritingTestComposerOpen, setIsWritingTestComposerOpen] = useState(false);
   const [writingTests, setWritingTests] = useState([]);
   const [isWritingTestsLoading, setIsWritingTestsLoading] = useState(true);
@@ -624,6 +664,7 @@ const WritingTestCreator = forwardRef(function WritingTestCreator(_, ref) {
           hasNewImageUpload={!!selectedPart1ImageFile}
           uploadProgress={writingTestUploadProgress}
           errorMessage={writingTestError}
+          themeMode={themeMode}
           onClose={handleCloseWritingTestComposer}
           onChange={handleWritingTestChange}
           onImageChange={handleWritingTestImageChange}

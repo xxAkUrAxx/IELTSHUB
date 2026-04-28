@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import {
@@ -14,10 +14,12 @@ import {
   ClipboardDocumentCheckIcon,
   ClockIcon,
   ComputerDesktopIcon,
+  MoonIcon,
   MicrophoneIcon,
   MusicalNoteIcon,
   PencilSquareIcon,
   PlusIcon,
+  SunIcon,
 } from "@heroicons/react/24/outline";
 import { auth } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
@@ -202,8 +204,20 @@ export default function CreatorPage() {
   const [openSectionKey, setOpenSectionKey] = useState("mock-exams");
   const [activeItemKey, setActiveItemKey] = useState("reading-test");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [themeMode, setThemeMode] = useState("dark");
 
   const activeItem = allSidebarItems.find((item) => item.key === activeItemKey);
+
+  useEffect(() => {
+    const savedTheme =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("creator-theme-mode")
+        : "";
+
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setThemeMode(savedTheme);
+    }
+  }, []);
 
   function handleToggleSection(sectionKey) {
     setOpenSectionKey((currentKey) =>
@@ -242,12 +256,27 @@ export default function CreatorPage() {
     }
   }
 
+  function handleToggleTheme() {
+    setThemeMode((currentTheme) => {
+      const nextTheme = currentTheme === "dark" ? "light" : "dark";
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("creator-theme-mode", nextTheme);
+      }
+
+      return nextTheme;
+    });
+  }
+
   if (!isAuthorized) {
     return null;
   }
 
   return (
-    <div className="flex min-h-screen bg-base-200 text-base-content">
+    <div
+      data-theme={themeMode}
+      className="flex min-h-screen bg-base-200 text-base-content"
+    >
       <aside
         className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-base-300 bg-base-100/95 backdrop-blur ${
           isCollapsed ? "w-20" : "w-72"
@@ -295,6 +324,24 @@ export default function CreatorPage() {
           </nav>
 
           <div className="mt-auto pt-4">
+            <button
+              type="button"
+              title={isCollapsed ? "Toggle theme" : undefined}
+              className="mb-3 flex w-full items-center rounded-xl border border-base-300 bg-base-100 px-3 py-3 text-left font-semibold text-base-content transition hover:bg-base-200"
+              onClick={handleToggleTheme}
+            >
+              {themeMode === "dark" ? (
+                <SunIcon className="h-5 w-5 shrink-0" />
+              ) : (
+                <MoonIcon className="h-5 w-5 shrink-0" />
+              )}
+              {!isCollapsed && (
+                <span className="ml-3">
+                  {themeMode === "dark" ? "Light mode" : "Dark mode"}
+                </span>
+              )}
+            </button>
+
             <button
               type="button"
               title={isCollapsed ? "Logout" : undefined}
@@ -350,9 +397,13 @@ export default function CreatorPage() {
               <ReadingTestCreator
                 ref={readingTestCreatorRef}
                 isSidebarCollapsed={isCollapsed}
+                themeMode={themeMode}
               />
             ) : activeItemKey === "writing-test" ? (
-              <WritingTestCreator ref={writingTestCreatorRef} />
+              <WritingTestCreator
+                ref={writingTestCreatorRef}
+                themeMode={themeMode}
+              />
             ) : (
               <div className="flex flex-1 items-center justify-center">
                 <div className="rounded-2xl border border-dashed border-base-300 bg-base-100 px-10 py-12 text-center shadow-sm">

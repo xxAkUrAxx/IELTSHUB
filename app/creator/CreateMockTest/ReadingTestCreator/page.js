@@ -78,6 +78,94 @@ const difficultyOptions = [
   { value: "hard", label: "Hard", color: "#AE2448" },
 ];
 
+function getReadingTheme(themeMode = "dark") {
+  const isLightMode = themeMode === "light";
+
+  return {
+    isLightMode,
+    actionButton: {
+      backgroundColor: "#007F73",
+      hoverBackgroundColor: "#00695f",
+      color: "#ffffff",
+    },
+    inputClass: isLightMode
+      ? "input border-[#bfd0ea] bg-white px-4 text-slate-900 placeholder:text-slate-400 focus:border-[#7aa2d6] focus:outline-none"
+      : "input border-[#233447] bg-[#1b2a3a] px-4 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none",
+    selectClass: isLightMode
+      ? "select w-full border-[#bfd0ea] bg-white px-4 text-slate-900 focus:border-[#7aa2d6] focus:outline-none"
+      : "select w-full border-[#233447] bg-[#1b2a3a] px-4 text-white focus:border-[#3b5168] focus:outline-none",
+    textareaClass: isLightMode
+      ? "textarea border-[#bfd0ea] bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#7aa2d6] focus:outline-none"
+      : "textarea border-[#233447] bg-[#1b2a3a] px-4 py-3 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none",
+    selectStyle: isLightMode
+      ? { backgroundColor: "#ffffff", color: "#0f172a" }
+      : { backgroundColor: "#1b2a3a", color: "#ffffff" },
+    overlayStyle: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 9998,
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "center",
+      padding: "16px",
+      overflowY: "auto",
+      backgroundColor: isLightMode ? "rgba(148, 163, 184, 0.35)" : "rgba(0, 0, 0, 0.72)",
+      backdropFilter: "blur(6px)",
+    },
+    alertOverlayStyle: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 9999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "16px",
+      backgroundColor: isLightMode ? "rgba(148, 163, 184, 0.35)" : "rgba(0, 0, 0, 0.72)",
+      backdropFilter: "blur(6px)",
+    },
+    shellClass: isLightMode
+      ? "rounded-3xl border border-[#bfd0ea] bg-[#f8fbff] text-slate-900 shadow-2xl"
+      : "rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl",
+    borderClass: isLightMode ? "border-[#bfd0ea]" : "border-[#233447]",
+    softNoticeClass: isLightMode
+      ? "rounded-2xl bg-[#edf4ff] px-5 py-4 text-sm leading-7 text-slate-600"
+      : "rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75",
+    surfaceClass: isLightMode
+      ? "rounded-2xl bg-[#eef5ff] p-5 shadow-sm md:p-6"
+      : "rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6",
+    innerSurfaceClass: isLightMode
+      ? "rounded-2xl bg-[#e6f0ff] p-4"
+      : "rounded-2xl bg-[#0f1720] p-4",
+    cardClass: isLightMode
+      ? "rounded-2xl border border-[#bfd0ea] bg-white p-4"
+      : "rounded-2xl border border-[#233447] bg-[#111a24] p-4",
+    compactCardClass: isLightMode
+      ? "rounded-xl border border-[#bfd0ea] bg-[#f8fbff] px-5 py-4"
+      : "rounded-xl border border-[#233447] bg-[#18232f] px-5 py-4",
+    tableWrapClass: isLightMode
+      ? "overflow-x-auto rounded-2xl border border-[#bfd0ea] bg-[#eef5ff] p-4"
+      : "overflow-x-auto rounded-2xl border border-[#233447] bg-[#0f1720] p-4",
+    tableHeaderCellClass: isLightMode
+      ? "border border-[#bfd0ea] bg-[#f8fbff] p-3 align-top"
+      : "border border-[#233447] bg-[#18232f] p-3 align-top",
+    tableCellClass: isLightMode
+      ? "border border-[#bfd0ea] p-3 align-top"
+      : "border border-[#233447] p-3 align-top",
+    mutedTextClass: isLightMode ? "text-slate-500" : "text-white/60",
+    subtleTextClass: isLightMode ? "text-slate-600" : "text-white/80",
+    labelTextClass: isLightMode ? "text-slate-800" : "text-white",
+    destructiveButtonClass: isLightMode
+      ? "btn btn-sm btn-square rounded-xl border border-[#d97777] bg-transparent text-error hover:border-[#dc2626] hover:bg-error/10"
+      : "btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10",
+    utilityButtonClass: isLightMode
+      ? "btn rounded-xl border-[#94a3b8] bg-transparent px-5 text-slate-700 hover:border-[#64748b] hover:bg-slate-200/60"
+      : "btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5",
+    modalCloseButtonClass: isLightMode
+      ? "btn btn-ghost btn-square rounded-xl text-slate-700 hover:bg-slate-200/70"
+      : "btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10",
+  };
+}
+
 const readingQuestionTypes = [
   "Multiple Choice",
   "True / False / Not Given (or Yes / No / Not Given)",
@@ -632,31 +720,31 @@ function createReadingFormFromTest(test) {
 }
 
 // Render primary action button
-function CreatorActionButton({ onClick, children }) {
+function CreatorActionButton({ onClick, children, themeMode = "dark" }) {
+  const theme = getReadingTheme(themeMode);
+
   return (
     <button
       type="button"
       className="btn gap-2 border-0 font-bold text-white"
-      style={{ backgroundColor: "#007F73", color: "#ffffff" }}
+      style={{
+        backgroundColor: theme.actionButton.backgroundColor,
+        color: theme.actionButton.color,
+      }}
       onClick={onClick}
       onMouseEnter={(event) => {
-        event.currentTarget.style.backgroundColor = "#00695f";
+        event.currentTarget.style.backgroundColor =
+          theme.actionButton.hoverBackgroundColor;
       }}
       onMouseLeave={(event) => {
-        event.currentTarget.style.backgroundColor = "#007F73";
+        event.currentTarget.style.backgroundColor =
+          theme.actionButton.backgroundColor;
       }}
     >
       {children}
     </button>
   );
 }
-
-const darkSelectClassName =
-  "select w-full border-[#233447] bg-[#1b2a3a] px-4 text-white focus:border-[#3b5168] focus:outline-none";
-const darkInputClassName =
-  "input border-[#233447] bg-[#1b2a3a] px-4 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none";
-const darkTextareaClassName =
-  "textarea border-[#233447] bg-[#1b2a3a] px-4 py-3 text-white placeholder:text-white/45 focus:border-[#3b5168] focus:outline-none";
 
 // Render reading test card
 function ReadingTestCard({ test, onDelete, onEdit }) {
@@ -746,6 +834,7 @@ function ReadingTestPanel({
   isSidebarCollapsed,
   isSaving,
   errorMessage,
+  themeMode,
   onClose,
   onChange,
   onAddQuestionType,
@@ -754,6 +843,7 @@ function ReadingTestPanel({
 }) {
   const [confirmState, setConfirmState] = useState(null);
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -798,7 +888,7 @@ function ReadingTestPanel({
               <span className="label-text mb-2 font-medium">Test Name</span>
               <input
                 type="text"
-                className="input input-bordered w-full"
+                className={theme.inputClass}
                 placeholder="Enter test name"
                 value={formValues.testName}
                 onChange={(event) => onChange("testName", event.target.value)}
@@ -808,8 +898,11 @@ function ReadingTestPanel({
             <label className="form-control">
               <span className="label-text mb-2 font-medium">Test Difficulty</span>
               <select
-                className="select select-bordered w-full"
-                style={{ color: getDifficultyTextColor(formValues.testDifficulty) }}
+                className={theme.selectClass}
+                style={{
+                  ...theme.selectStyle,
+                  color: getDifficultyTextColor(formValues.testDifficulty),
+                }}
                 value={formValues.testDifficulty}
                 onChange={(event) =>
                   onChange("testDifficulty", event.target.value)
@@ -831,7 +924,7 @@ function ReadingTestPanel({
               <span className="label-text mb-2 font-medium">Date</span>
               <input
                 type="text"
-                className="input input-bordered w-full"
+                className={theme.inputClass}
                 value={formValues.date}
                 readOnly
               />
@@ -876,7 +969,7 @@ function ReadingTestPanel({
                     </span>
                     <input
                       type="text"
-                      className={`${darkInputClassName} w-full text-lg font-semibold`}
+                      className={`${theme.inputClass} w-full text-lg font-semibold`}
                       placeholder={`Enter the heading for Reading Passage ${sectionNumber}`}
                       value={formValues[titleField]}
                       onChange={(event) =>
@@ -891,7 +984,7 @@ function ReadingTestPanel({
                     </span>
                     <input
                       type="text"
-                      className={`${darkInputClassName} w-full`}
+                      className={`${theme.inputClass} w-full`}
                       placeholder={`Enter the subheading for Reading Passage ${sectionNumber}`}
                       value={formValues[subtitleField]}
                       onChange={(event) =>
@@ -905,7 +998,7 @@ function ReadingTestPanel({
                       Section {sectionNumber} - Paste text here
                     </span>
                     <textarea
-                      className="textarea textarea-bordered min-h-48 w-full leading-7"
+                      className={`${theme.textareaClass} min-h-48 w-full leading-7`}
                       placeholder={`Paste the full passage for Section ${sectionNumber} here.`}
                       value={formValues[textField]}
                       onChange={(event) =>
@@ -923,11 +1016,8 @@ function ReadingTestPanel({
                         Select question type for section {sectionNumber}
                       </span>
                       <select
-                        className={`${darkSelectClassName} max-w-md font-medium`}
-                        style={{
-                          backgroundColor: "#1b2a3a",
-                          color: "#ffffff",
-                        }}
+                        className={`${theme.selectClass} max-w-md font-medium`}
+                        style={theme.selectStyle}
                         value={questionTypeSelections[sectionNumber] || ""}
                         onChange={(event) => {
                           const nextQuestionType = event.target.value;
@@ -981,7 +1071,7 @@ function ReadingTestPanel({
                               </div>
                               <button
                                 type="button"
-                                className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                                className={theme.destructiveButtonClass}
                                 aria-label={`Delete question ${item.questionNumber || ""}`}
                                 onClick={() =>
                                   setConfirmState({
@@ -1089,7 +1179,7 @@ function ReadingTestPanel({
           <button type="button" className="btn" onClick={onClose}>
             Close
           </button>
-          <CreatorActionButton onClick={onSave}>
+          <CreatorActionButton onClick={onSave} themeMode={themeMode}>
             {isSaving ? "Saving..." : "Save Test"}
           </CreatorActionButton>
         </div>
@@ -1098,23 +1188,13 @@ function ReadingTestPanel({
       {isPortalReady && confirmState
         ? createPortal(
             <div
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 9999,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "16px",
-                backgroundColor: "rgba(0, 0, 0, 0.72)",
-                backdropFilter: "blur(6px)",
-              }}
+              style={theme.alertOverlayStyle}
             >
-              <section className="w-full max-w-md rounded-3xl border border-[#233447] bg-[#18232f] p-6 text-white shadow-2xl">
+              <section className={`w-full max-w-md p-6 ${theme.shellClass}`}>
                 <h3 className="text-xl font-semibold tracking-tight">
                   {confirmState.title}
                 </h3>
-                <p className="mt-3 leading-7 text-white/80">
+                <p className={`mt-3 leading-7 ${theme.subtleTextClass}`}>
                   {confirmState.message}
                 </p>
                 <div className="mt-6 flex justify-end gap-3">
@@ -1125,7 +1205,10 @@ function ReadingTestPanel({
                   >
                     Cancel
                   </button>
-                  <CreatorActionButton onClick={confirmState.onConfirm}>
+                  <CreatorActionButton
+                    onClick={confirmState.onConfirm}
+                    themeMode={themeMode}
+                  >
                     {confirmState.confirmLabel}
                   </CreatorActionButton>
                 </div>
@@ -1146,6 +1229,7 @@ function MatchingInformationDialog({
   questionsText,
   answersText,
   errorMessage,
+  themeMode,
   onChangeInstructions,
   onChangeQuestionsText,
   onChangeAnswersText,
@@ -1157,6 +1241,7 @@ function MatchingInformationDialog({
   const possibleAnswers = parseNonEmptyLines(answersText);
   const [confirmState, setConfirmState] = useState(null);
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -1187,23 +1272,12 @@ function MatchingInformationDialog({
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "16px",
-        overflowY: "auto",
-        backgroundColor: "rgba(0, 0, 0, 0.72)",
-        backdropFilter: "blur(6px)",
-      }}
+      style={theme.overlayStyle}
     >
-      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+      <section className={`my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto ${theme.shellClass}`}>
+        <div className={`flex items-center justify-between border-b px-6 py-5 md:px-7 ${theme.borderClass}`}>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+            <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme.mutedTextClass}`}>
               Section {sectionNumber}
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -1213,7 +1287,7 @@ function MatchingInformationDialog({
 
           <button
             type="button"
-            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            className={theme.modalCloseButtonClass}
             aria-label="Close matching information dialog"
             onClick={onClose}
           >
@@ -1222,18 +1296,18 @@ function MatchingInformationDialog({
         </div>
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
-          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+          <div className={theme.softNoticeClass}>
             Add the question lines in one field and the selectable answers in the other. The builder will generate a simple matching table underneath.
           </div>
 
-          <section className="mt-1 rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+          <section className={`mt-1 ${theme.surfaceClass}`}>
             <div className="grid gap-6 pt-1">
               <label className="form-control">
-                <span className="label-text mb-2 font-medium text-white">
+                <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                   Instructions
                 </span>
                 <textarea
-                  className={`${darkTextareaClassName} min-h-28 w-full leading-7`}
+                  className={`${theme.textareaClass} min-h-28 w-full leading-7`}
                   placeholder="Enter the instructions students should see, for example: Match each person with the correct idea, A-E."
                   value={instructions}
                   onChange={(event) =>
@@ -1244,11 +1318,11 @@ function MatchingInformationDialog({
 
               <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <label className="form-control">
-                  <span className="label-text mb-2 font-medium text-white">
+                  <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                     Field 1: Questions
                   </span>
                   <textarea
-                    className={`${darkTextareaClassName} min-h-56 w-full leading-7`}
+                    className={`${theme.textareaClass} min-h-56 w-full leading-7`}
                     placeholder={`20 Peter Toohey\n21 Thomas Goetz\n22 John Eastwood\n23 Francoise Wemelsfelder`}
                     value={questionsText}
                     onChange={(event) =>
@@ -1258,11 +1332,11 @@ function MatchingInformationDialog({
                 </label>
 
                 <label className="form-control">
-                  <span className="label-text mb-2 font-medium text-white">
+                  <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                     Field 2: Answers that can be selected
                   </span>
                   <textarea
-                    className={`${darkTextareaClassName} min-h-56 w-full leading-7`}
+                    className={`${theme.textareaClass} min-h-56 w-full leading-7`}
                     placeholder={`A The way we live today may encourage boredom.\nB One sort of boredom is worse than all the others.\nC Levels of boredom may fall in the future.`}
                     value={answersText}
                     onChange={(event) =>
@@ -1272,10 +1346,10 @@ function MatchingInformationDialog({
                 </label>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl bg-[#0f1720] p-4">
+              <div className={theme.innerSurfaceClass}>
                 <table className="table">
                   <thead>
-                    <tr className="text-white/70">
+                    <tr className={theme.mutedTextClass}>
                       <th className="w-24">Q No.</th>
                       <th>Question</th>
                       <th className="w-72">Correct Answer</th>
@@ -1290,7 +1364,7 @@ function MatchingInformationDialog({
                             type="number"
                             min="1"
                             max="40"
-                            className={`${darkInputClassName} w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                            className={`${theme.inputClass} w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                             value={question.questionNumber}
                             onChange={(event) =>
                               onChangeQuestion(
@@ -1304,7 +1378,7 @@ function MatchingInformationDialog({
                         <td className="align-top">
                           <input
                             type="text"
-                            className={`${darkInputClassName} w-full`}
+                            className={`${theme.inputClass} w-full`}
                             value={question.prompt}
                             onChange={(event) =>
                               onChangeQuestion(
@@ -1317,8 +1391,8 @@ function MatchingInformationDialog({
                         </td>
                         <td className="align-top">
                           <select
-                            className={`${darkSelectClassName} w-full appearance-none`}
-                            style={{ backgroundColor: "#1b2a3a", color: "#ffffff" }}
+                            className={`${theme.selectClass} w-full appearance-none`}
+                            style={theme.selectStyle}
                             value={question.correctAnswer}
                             onChange={(event) =>
                               onChangeQuestion(
@@ -1340,7 +1414,7 @@ function MatchingInformationDialog({
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              className="btn btn-sm btn-square rounded-xl border border-[#5b2a38] bg-transparent text-error hover:border-[#7a3247] hover:bg-error/10"
+                              className={theme.destructiveButtonClass}
                               aria-label={`Delete question ${question.questionNumber || ""}`}
                               onClick={() => handleConfirmDelete(question)}
                             >
@@ -1366,7 +1440,7 @@ function MatchingInformationDialog({
           <button type="button" className="btn px-5" onClick={onClose}>
             Cancel
           </button>
-          <CreatorActionButton onClick={onSave}>
+          <CreatorActionButton onClick={onSave} themeMode={themeMode}>
             Save Questions
           </CreatorActionButton>
         </div>
@@ -1374,23 +1448,13 @@ function MatchingInformationDialog({
 
       {confirmState ? (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-            backgroundColor: "rgba(0, 0, 0, 0.72)",
-            backdropFilter: "blur(6px)",
-          }}
+          style={theme.alertOverlayStyle}
         >
-          <section className="w-full max-w-md rounded-3xl border border-[#233447] bg-[#18232f] p-6 text-white shadow-2xl">
+          <section className={`w-full max-w-md p-6 ${theme.shellClass}`}>
             <h3 className="text-xl font-semibold tracking-tight">
               {confirmState.title}
             </h3>
-            <p className="mt-3 leading-7 text-white/80">
+            <p className={`mt-3 leading-7 ${theme.subtleTextClass}`}>
               {confirmState.message}
             </p>
             <div className="mt-6 flex justify-end gap-3">
@@ -1401,7 +1465,10 @@ function MatchingInformationDialog({
               >
                 Cancel
               </button>
-              <CreatorActionButton onClick={confirmState.onConfirm}>
+              <CreatorActionButton
+                onClick={confirmState.onConfirm}
+                themeMode={themeMode}
+              >
                 {confirmState.confirmLabel}
               </CreatorActionButton>
             </div>
@@ -1418,6 +1485,7 @@ function TfngQuestionDialog({
   sectionNumber,
   questions,
   errorMessage,
+  themeMode,
   onChangeQuestion,
   onAddQuestion,
   onRemoveQuestion,
@@ -1425,6 +1493,7 @@ function TfngQuestionDialog({
   onSave,
 }) {
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -1436,23 +1505,12 @@ function TfngQuestionDialog({
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "16px",
-        overflowY: "auto",
-        backgroundColor: "rgba(0, 0, 0, 0.72)",
-        backdropFilter: "blur(6px)",
-      }}
+      style={theme.overlayStyle}
     >
-      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+      <section className={`my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto ${theme.shellClass}`}>
+        <div className={`flex items-center justify-between border-b px-6 py-5 md:px-7 ${theme.borderClass}`}>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+            <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme.mutedTextClass}`}>
               Section {sectionNumber}
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -1462,7 +1520,7 @@ function TfngQuestionDialog({
 
           <button
             type="button"
-            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            className={theme.modalCloseButtonClass}
             aria-label="Close TFNG question dialog"
             onClick={onClose}
           >
@@ -1471,14 +1529,14 @@ function TfngQuestionDialog({
         </div>
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
-          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+          <div className={theme.softNoticeClass}>
             Add one or more TFNG questions for this section. Each question should use a reading test question number from 1 to 40 and one correct answer.
           </div>
 
           {questions.map((question, index) => (
             <section
               key={question.id}
-              className="mt-1 rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6"
+              className={`mt-1 ${theme.surfaceClass}`}
             >
               <div className="mb-6 flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold">
@@ -1497,15 +1555,12 @@ function TfngQuestionDialog({
 
               <div className="grid gap-6 pt-1">
                 <label className="form-control max-w-sm">
-                  <span className="label-text mb-2 font-medium text-white">
+                  <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                     Select Answer Type
                   </span>
                   <select
-                    className={`${darkSelectClassName} max-w-sm appearance-none`}
-                    style={{
-                      backgroundColor: "#1b2a3a",
-                      color: "#ffffff",
-                    }}
+                    className={`${theme.selectClass} max-w-sm appearance-none`}
+                    style={theme.selectStyle}
                     value={question.answerType || "TFNG"}
                     onChange={(event) =>
                       onChangeQuestion(
@@ -1531,7 +1586,7 @@ function TfngQuestionDialog({
                     type="number"
                     min="1"
                     max="40"
-                    className={`${darkInputClassName} w-36 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                    className={`${theme.inputClass} w-36 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                     placeholder="1-40"
                     value={question.questionNumber}
                     onChange={(event) =>
@@ -1549,7 +1604,7 @@ function TfngQuestionDialog({
                     Question Text
                   </span>
                   <textarea
-                    className={`${darkTextareaClassName} min-h-32 w-full leading-7`}
+                    className={`${theme.textareaClass} min-h-32 w-full leading-7`}
                     placeholder="Enter one question statement here. Use Add Another Question below to create multiple questions of the same type."
                     value={question.prompt}
                     onChange={(event) =>
@@ -1563,11 +1618,8 @@ function TfngQuestionDialog({
                     Select Answer
                   </span>
                   <select
-                    className={`${darkSelectClassName} max-w-sm appearance-none`}
-                    style={{
-                      backgroundColor: "#1b2a3a",
-                      color: "#ffffff",
-                    }}
+                    className={`${theme.selectClass} max-w-sm appearance-none`}
+                    style={theme.selectStyle}
                     value={question.correctAnswer}
                     onChange={(event) =>
                       onChangeQuestion(
@@ -1592,7 +1644,7 @@ function TfngQuestionDialog({
           <div className="pt-4">
             <button
               type="button"
-              className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+              className={theme.utilityButtonClass}
               onClick={onAddQuestion}
             >
               Add Another Question
@@ -1609,7 +1661,7 @@ function TfngQuestionDialog({
           <button type="button" className="btn px-5" onClick={onClose}>
             Cancel
           </button>
-          <CreatorActionButton onClick={onSave}>
+          <CreatorActionButton onClick={onSave} themeMode={themeMode}>
             Save Questions
           </CreatorActionButton>
         </div>
@@ -1626,6 +1678,7 @@ function SummaryCompletionDialog({
   summaryText,
   questions,
   errorMessage,
+  themeMode,
   onChangeInstructions,
   onChangeText,
   onChangeQuestion,
@@ -1633,6 +1686,7 @@ function SummaryCompletionDialog({
   onSave,
 }) {
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -1644,23 +1698,12 @@ function SummaryCompletionDialog({
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "16px",
-        overflowY: "auto",
-        backgroundColor: "rgba(0, 0, 0, 0.72)",
-        backdropFilter: "blur(6px)",
-      }}
+      style={theme.overlayStyle}
     >
-      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+      <section className={`my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto ${theme.shellClass}`}>
+        <div className={`flex items-center justify-between border-b px-6 py-5 md:px-7 ${theme.borderClass}`}>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+            <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme.mutedTextClass}`}>
               Section {sectionNumber}
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -1669,7 +1712,7 @@ function SummaryCompletionDialog({
           </div>
           <button
             type="button"
-            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            className={theme.modalCloseButtonClass}
             aria-label="Close summary completion dialog"
             onClick={onClose}
           >
@@ -1678,18 +1721,18 @@ function SummaryCompletionDialog({
         </div>
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
-          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+          <div className={theme.softNoticeClass}>
             Paste the full summary text once. The builder will automatically detect blanks when it finds a question number followed by at least five dots, like 24 ........
           </div>
 
-          <section className="rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+          <section className={theme.surfaceClass}>
             <div className="grid gap-6">
               <label className="form-control">
-                <span className="label-text mb-2 font-medium text-white">
+                <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                   Instructions
                 </span>
                 <textarea
-                  className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                  className={`${theme.textareaClass} min-h-24 w-full leading-7`}
                   placeholder="Enter the instructions students should see."
                   value={instructions}
                   onChange={(event) => onChangeInstructions(event.target.value)}
@@ -1697,20 +1740,20 @@ function SummaryCompletionDialog({
               </label>
 
               <label className="form-control">
-                <span className="label-text mb-2 font-medium text-white">
+                <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                   Summary Text
                 </span>
                 <textarea
-                  className={`${darkTextareaClassName} min-h-72 w-full leading-7`}
+                  className={`${theme.textareaClass} min-h-72 w-full leading-7`}
                   placeholder="Paste the summary completion text here."
                   value={summaryText}
                   onChange={(event) => onChangeText(event.target.value)}
                 />
               </label>
 
-              <div className="rounded-2xl bg-[#0f1720] p-4">
+              <div className={theme.innerSurfaceClass}>
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <p className="font-medium text-white">Generated Answer Fields</p>
+                  <p className={`font-medium ${theme.labelTextClass}`}>Generated Answer Fields</p>
                   <div className="badge badge-outline">{questions.length} answers</div>
                 </div>
 
@@ -1719,10 +1762,10 @@ function SummaryCompletionDialog({
                     {questions.map((question) => (
                       <div
                         key={question.id}
-                        className="grid gap-3 rounded-2xl border border-[#233447] bg-[#111a24] p-4 md:grid-cols-[120px_minmax(0,1fr)]"
+                        className={`grid gap-3 md:grid-cols-[120px_minmax(0,1fr)] ${theme.cardClass}`}
                       >
                         <div>
-                          <p className="text-sm font-medium text-white/60">
+                          <p className={`text-sm font-medium ${theme.mutedTextClass}`}>
                             Question
                           </p>
                           <p className="mt-1 text-lg font-semibold">
@@ -1730,12 +1773,12 @@ function SummaryCompletionDialog({
                           </p>
                         </div>
                         <label className="form-control">
-                          <span className="label-text mb-2 font-medium text-white">
+                          <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                             Enter Correct Answer
                           </span>
                           <input
                             type="text"
-                            className={`${darkInputClassName} w-full`}
+                            className={`${theme.inputClass} w-full`}
                             placeholder={`Enter the exact answer for Question ${question.questionNumber}`}
                             value={question.correctAnswer}
                             onChange={(event) =>
@@ -1747,7 +1790,7 @@ function SummaryCompletionDialog({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm leading-7 text-white/60">
+                  <p className={`text-sm leading-7 ${theme.mutedTextClass}`}>
                     No blanks detected yet. Add a number followed by at least five dots in the summary text to generate answer fields.
                   </p>
                 )}
@@ -1765,7 +1808,7 @@ function SummaryCompletionDialog({
           <button type="button" className="btn px-5" onClick={onClose}>
             Cancel
           </button>
-          <CreatorActionButton onClick={onSave}>
+          <CreatorActionButton onClick={onSave} themeMode={themeMode}>
             Save Questions
           </CreatorActionButton>
         </div>
@@ -1782,6 +1825,7 @@ function MultipleChoiceDialog({
   sourceText,
   questions,
   errorMessage,
+  themeMode,
   onChangeInstructions,
   onChangeText,
   onAddQuestion,
@@ -1792,6 +1836,7 @@ function MultipleChoiceDialog({
   onSave,
 }) {
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -1803,23 +1848,12 @@ function MultipleChoiceDialog({
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "16px",
-        overflowY: "auto",
-        backgroundColor: "rgba(0, 0, 0, 0.72)",
-        backdropFilter: "blur(6px)",
-      }}
+      style={theme.overlayStyle}
     >
-      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+      <section className={`my-auto max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto ${theme.shellClass}`}>
+        <div className={`flex items-center justify-between border-b px-6 py-5 md:px-7 ${theme.borderClass}`}>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+            <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme.mutedTextClass}`}>
               Section {sectionNumber}
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -1828,7 +1862,7 @@ function MultipleChoiceDialog({
           </div>
           <button
             type="button"
-            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            className={theme.modalCloseButtonClass}
             aria-label="Close multiple choice dialog"
             onClick={onClose}
           >
@@ -1837,18 +1871,18 @@ function MultipleChoiceDialog({
         </div>
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
-          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+          <div className={theme.softNoticeClass}>
             Paste the full IELTS multiple choice block once. The builder will detect the question number, question text, and A-D choices automatically so the teacher only needs to pick the correct answer.
           </div>
 
-          <section className="rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+          <section className={theme.surfaceClass}>
             <div className="grid gap-6">
               <label className="form-control">
-                <span className="label-text mb-2 font-medium text-white">
+                <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                   Instructions
                 </span>
                 <textarea
-                  className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                  className={`${theme.textareaClass} min-h-24 w-full leading-7`}
                   placeholder="Enter the instructions students should see."
                   value={instructions}
                   onChange={(event) => onChangeInstructions(event.target.value)}
@@ -1856,20 +1890,20 @@ function MultipleChoiceDialog({
               </label>
 
               <label className="form-control">
-                <span className="label-text mb-2 font-medium text-white">
+                <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                   Multiple Choice Text
                 </span>
                 <textarea
-                  className={`${darkTextareaClassName} min-h-72 w-full leading-7`}
+                  className={`${theme.textareaClass} min-h-72 w-full leading-7`}
                   placeholder="Paste the multiple choice question block here."
                   value={sourceText}
                   onChange={(event) => onChangeText(event.target.value)}
                 />
               </label>
 
-              <div className="rounded-2xl bg-[#0f1720] p-4">
+              <div className={theme.innerSurfaceClass}>
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <p className="font-medium text-white">Generated Questions</p>
+                  <p className={`font-medium ${theme.labelTextClass}`}>Generated Questions</p>
                   <div className="badge badge-outline">{questions.length} questions</div>
                 </div>
 
@@ -1878,17 +1912,17 @@ function MultipleChoiceDialog({
                     {questions.map((question) => (
                       <div
                         key={question.id}
-                        className="rounded-2xl border border-[#233447] bg-[#111a24] p-4"
+                        className={theme.cardClass}
                       >
                         <label className="form-control max-w-xs">
-                          <span className="label-text mb-3 font-medium text-white">
+                          <span className={`label-text mb-3 font-medium ${theme.labelTextClass}`}>
                             Question Number
                           </span>
                           <input
                             type="number"
                             min="1"
                             max="40"
-                            className={`${darkInputClassName} w-28 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
+                            className={`${theme.inputClass} w-28 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                             value={question.questionNumber}
                             onChange={(event) =>
                               onChangeQuestionField(
@@ -1901,11 +1935,11 @@ function MultipleChoiceDialog({
                         </label>
 
                         <label className="form-control mt-4 block">
-                          <span className="label-text mb-3 font-medium text-white">
+                          <span className={`label-text mb-3 font-medium ${theme.labelTextClass}`}>
                             Question Text
                           </span>
                           <textarea
-                            className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                            className={`${theme.textareaClass} min-h-24 w-full leading-7`}
                             value={question.prompt}
                             onChange={(event) =>
                               onChangeQuestionField(
@@ -1921,7 +1955,7 @@ function MultipleChoiceDialog({
                           {question.options.map((option) => (
                             <div
                               key={`${question.id}-${option.label}`}
-                              className="rounded-xl border border-[#233447] bg-[#18232f] px-5 py-4"
+                              className={theme.compactCardClass}
                             >
                               <div className="flex items-center gap-4">
                                 <input
@@ -1933,12 +1967,12 @@ function MultipleChoiceDialog({
                                     onChangeQuestionAnswer(question.id, option.label)
                                   }
                                 />
-                                <span className="font-semibold text-white">
+                                <span className={`font-semibold ${theme.labelTextClass}`}>
                                   {option.label}.
                                 </span>
                                 <input
                                   type="text"
-                                  className={`${darkInputClassName} flex-1`}
+                                  className={`${theme.inputClass} flex-1`}
                                   value={option.text}
                                   onChange={(event) =>
                                     onChangeQuestionOption(
@@ -1956,7 +1990,7 @@ function MultipleChoiceDialog({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm leading-7 text-white/60">
+                  <p className={`text-sm leading-7 ${theme.mutedTextClass}`}>
                     No multiple choice questions detected yet. Paste a numbered question followed by A, B, C, and D options to generate them.
                   </p>
                 )}
@@ -1964,7 +1998,7 @@ function MultipleChoiceDialog({
                 <div className="pt-4">
                   <button
                     type="button"
-                    className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+                    className={theme.utilityButtonClass}
                     onClick={onAddQuestion}
                   >
                     Add Another Question
@@ -1984,7 +2018,7 @@ function MultipleChoiceDialog({
           <button type="button" className="btn px-5" onClick={onClose}>
             Cancel
           </button>
-          <CreatorActionButton onClick={onSave}>
+          <CreatorActionButton onClick={onSave} themeMode={themeMode}>
             Save Questions
           </CreatorActionButton>
         </div>
@@ -2002,6 +2036,7 @@ function TableCompletionDialog({
   rows,
   questions,
   errorMessage,
+  themeMode,
   onChangeInstructions,
   onAddColumn,
   onRemoveColumn,
@@ -2014,6 +2049,7 @@ function TableCompletionDialog({
   onSave,
 }) {
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -2025,23 +2061,12 @@ function TableCompletionDialog({
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "16px",
-        overflowY: "auto",
-        backgroundColor: "rgba(0, 0, 0, 0.72)",
-        backdropFilter: "blur(6px)",
-      }}
+      style={theme.overlayStyle}
     >
-      <section className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-6xl overflow-y-auto rounded-3xl border border-[#233447] bg-[#18232f] text-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#233447] px-6 py-5 md:px-7">
+      <section className={`my-auto max-h-[calc(100vh-2rem)] w-full max-w-6xl overflow-y-auto ${theme.shellClass}`}>
+        <div className={`flex items-center justify-between border-b px-6 py-5 md:px-7 ${theme.borderClass}`}>
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/45">
+            <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme.mutedTextClass}`}>
               Section {sectionNumber}
             </p>
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -2050,7 +2075,7 @@ function TableCompletionDialog({
           </div>
           <button
             type="button"
-            className="btn btn-ghost btn-square rounded-xl text-white hover:bg-white/10"
+            className={theme.modalCloseButtonClass}
             aria-label="Close table completion dialog"
             onClick={onClose}
           >
@@ -2059,18 +2084,18 @@ function TableCompletionDialog({
         </div>
 
         <div className="space-y-6 px-6 py-6 md:px-7 md:py-7">
-          <div className="rounded-2xl bg-white/5 px-5 py-4 text-sm leading-7 text-white/75">
+          <div className={theme.softNoticeClass}>
             Build the table first, then type each numbered blank directly inside the right cell using at least five dots, like 5 ........ . Every detected numbered blank becomes a student answer field automatically, including multiple blanks in the same cell.
           </div>
 
-          <section className="rounded-2xl bg-[#111a24] p-5 shadow-sm md:p-6">
+          <section className={theme.surfaceClass}>
             <div className="grid gap-6">
               <label className="form-control">
-                <span className="label-text mb-2 font-medium text-white">
+                <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                   Instructions
                 </span>
                 <textarea
-                  className={`${darkTextareaClassName} min-h-24 w-full leading-7`}
+                  className={`${theme.textareaClass} min-h-24 w-full leading-7`}
                   placeholder="Enter the instructions students should see."
                   value={instructions}
                   onChange={(event) => onChangeInstructions(event.target.value)}
@@ -2080,33 +2105,33 @@ function TableCompletionDialog({
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+                  className={theme.utilityButtonClass}
                   onClick={onAddColumn}
                 >
                   Add Column
                 </button>
                 <button
                   type="button"
-                  className="btn rounded-xl border-[#3b5168] bg-transparent px-5 text-white hover:border-[#4a647f] hover:bg-white/5"
+                  className={theme.utilityButtonClass}
                   onClick={onAddRow}
                 >
                   Add Row
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-[#233447] bg-[#0f1720] p-4">
+              <div className={theme.tableWrapClass}>
                 <table className="w-full min-w-[720px] border-separate border-spacing-0">
                   <thead>
                     <tr>
                       {headers.map((header, headerIndex) => (
                         <th
                           key={`table-header-${headerIndex}`}
-                          className="border border-[#233447] bg-[#18232f] p-3 align-top"
+                          className={theme.tableHeaderCellClass}
                         >
                           <div className="space-y-3">
                             <input
                               type="text"
-                              className={`${darkInputClassName} w-full`}
+                              className={`${theme.inputClass} w-full`}
                               placeholder={`Column ${headerIndex + 1} heading`}
                               value={header}
                               onChange={(event) =>
@@ -2116,7 +2141,7 @@ function TableCompletionDialog({
                             {headers.length > 1 ? (
                               <button
                                 type="button"
-                                className="btn btn-sm rounded-xl border-[#5b2a38] bg-transparent text-white hover:border-[#7a3247] hover:bg-white/5"
+                                className={theme.utilityButtonClass}
                                 onClick={() => onRemoveColumn(headerIndex)}
                               >
                                 Remove Column
@@ -2133,10 +2158,10 @@ function TableCompletionDialog({
                         {row.cells.map((cell, cellIndex) => (
                           <td
                             key={`${row.id}-${cellIndex}`}
-                            className="border border-[#233447] p-3 align-top"
+                            className={theme.tableCellClass}
                           >
                             <textarea
-                              className={`${darkTextareaClassName} min-h-28 w-full leading-7`}
+                              className={`${theme.textareaClass} min-h-28 w-full leading-7`}
                               placeholder={`Row ${rowIndex + 1}, column ${cellIndex + 1}`}
                               value={cell}
                               onChange={(event) =>
@@ -2149,7 +2174,7 @@ function TableCompletionDialog({
                           {rows.length > 1 ? (
                             <button
                               type="button"
-                              className="btn btn-sm rounded-xl border-[#5b2a38] bg-transparent text-white hover:border-[#7a3247] hover:bg-white/5"
+                              className={theme.utilityButtonClass}
                               onClick={() => onRemoveRow(row.id)}
                             >
                               Remove Row
@@ -2162,9 +2187,9 @@ function TableCompletionDialog({
                 </table>
               </div>
 
-              <div className="rounded-2xl bg-[#0f1720] p-4">
+              <div className={theme.innerSurfaceClass}>
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <p className="font-medium text-white">Detected Answers</p>
+                  <p className={`font-medium ${theme.labelTextClass}`}>Detected Answers</p>
                   <div className="badge badge-outline">{questions.length} answers</div>
                 </div>
 
@@ -2173,10 +2198,10 @@ function TableCompletionDialog({
                     {questions.map((question) => (
                       <div
                         key={question.id}
-                        className="grid gap-3 rounded-2xl border border-[#233447] bg-[#111a24] p-4 md:grid-cols-[120px_minmax(0,1fr)]"
+                        className={`grid gap-3 md:grid-cols-[120px_minmax(0,1fr)] ${theme.cardClass}`}
                       >
                         <div>
-                          <p className="text-sm font-medium text-white/60">
+                          <p className={`text-sm font-medium ${theme.mutedTextClass}`}>
                             Question
                           </p>
                           <p className="mt-1 text-lg font-semibold">
@@ -2184,12 +2209,12 @@ function TableCompletionDialog({
                           </p>
                         </div>
                         <label className="form-control">
-                          <span className="label-text mb-2 font-medium text-white">
+                          <span className={`label-text mb-2 font-medium ${theme.labelTextClass}`}>
                             Enter Correct Answer
                           </span>
                           <input
                             type="text"
-                            className={`${darkInputClassName} w-full`}
+                            className={`${theme.inputClass} w-full`}
                             placeholder={`Enter the exact answer for Question ${question.questionNumber}`}
                             value={question.correctAnswer}
                             onChange={(event) =>
@@ -2201,7 +2226,7 @@ function TableCompletionDialog({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm leading-7 text-white/60">
+                  <p className={`text-sm leading-7 ${theme.mutedTextClass}`}>
                     No answer fields detected yet. Add a number followed by at least five dots inside any table cell to generate them automatically.
                   </p>
                 )}
@@ -2219,7 +2244,7 @@ function TableCompletionDialog({
           <button type="button" className="btn px-5" onClick={onClose}>
             Cancel
           </button>
-          <CreatorActionButton onClick={onSave}>
+          <CreatorActionButton onClick={onSave} themeMode={themeMode}>
             Save Questions
           </CreatorActionButton>
         </div>
@@ -2230,8 +2255,9 @@ function TableCompletionDialog({
 }
 
 // Render alert dialog
-function CenteredAlertDialog({ message, onClose }) {
+function CenteredAlertDialog({ message, onClose, themeMode }) {
   const [isPortalReady, setIsPortalReady] = useState(false);
+  const theme = getReadingTheme(themeMode);
 
   useEffect(() => {
     setIsPortalReady(true);
@@ -2243,25 +2269,17 @@ function CenteredAlertDialog({ message, onClose }) {
 
   return createPortal(
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-        backgroundColor: "rgba(0, 0, 0, 0.72)",
-        backdropFilter: "blur(6px)",
-      }}
+      style={theme.alertOverlayStyle}
     >
-      <section className="w-full max-w-md rounded-3xl border border-[#233447] bg-[#18232f] p-6 text-white shadow-2xl">
+      <section className={`w-full max-w-md p-6 ${theme.shellClass}`}>
         <h3 className="text-xl font-semibold tracking-tight">
           Builder Not Available
         </h3>
-        <p className="mt-3 leading-7 text-white/80">{message}</p>
+        <p className={`mt-3 leading-7 ${theme.subtleTextClass}`}>{message}</p>
         <div className="mt-6 flex justify-end">
-          <CreatorActionButton onClick={onClose}>OK</CreatorActionButton>
+          <CreatorActionButton onClick={onClose} themeMode={themeMode}>
+            OK
+          </CreatorActionButton>
         </div>
       </section>
     </div>,
@@ -2271,7 +2289,7 @@ function CenteredAlertDialog({ message, onClose }) {
 
 // Manage reading test feature
 const ReadingTestCreator = forwardRef(function ReadingTestCreator(
-  { isSidebarCollapsed = false },
+  { isSidebarCollapsed = false, themeMode = "dark" },
   ref
 ) {
   const [isReadingTestComposerOpen, setIsReadingTestComposerOpen] = useState(false);
@@ -3668,6 +3686,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
           <CenteredAlertDialog
             message={readingBuilderNotice}
             onClose={handleCloseReadingBuilderNotice}
+            themeMode={themeMode}
           />
 
           {isTfngDialogOpen ? (
@@ -3680,6 +3699,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
               onRemoveQuestion={handleRemoveTfngQuestion}
               onClose={handleCloseTfngDialog}
               onSave={handleSaveTfngQuestions}
+              themeMode={themeMode}
             />
           ) : null}
 
@@ -3698,6 +3718,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
               onRemoveQuestion={handleRemoveMatchingInformationQuestion}
               onClose={handleCloseMatchingInformationDialog}
               onSave={handleSaveMatchingInformationQuestions}
+              themeMode={themeMode}
             />
           ) : null}
 
@@ -3713,6 +3734,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
               onChangeQuestion={handleChangeSummaryCompletionQuestion}
               onClose={handleCloseSummaryCompletionDialog}
               onSave={handleSaveSummaryCompletionQuestions}
+              themeMode={themeMode}
             />
           ) : null}
 
@@ -3731,6 +3753,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
               onChangeQuestionAnswer={handleChangeMultipleChoiceQuestionAnswer}
               onClose={handleCloseMultipleChoiceDialog}
               onSave={handleSaveMultipleChoiceQuestions}
+              themeMode={themeMode}
             />
           ) : null}
 
@@ -3752,6 +3775,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
               onChangeQuestion={handleChangeTableCompletionQuestion}
               onClose={handleCloseTableCompletionDialog}
               onSave={handleSaveTableCompletionQuestions}
+              themeMode={themeMode}
             />
           ) : null}
 
@@ -3764,6 +3788,7 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
                     isSidebarCollapsed={isSidebarCollapsed}
                     isSaving={isSavingReadingTest}
                     errorMessage={readingTestError}
+                    themeMode={themeMode}
                     onClose={handleCloseReadingTestComposer}
                     onChange={handleReadingTestChange}
                     onAddQuestionType={handleAddReadingQuestionType}
