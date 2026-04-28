@@ -1,8 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
 import {
   AcademicCapIcon,
+  ArrowLeftOnRectangleIcon,
   Bars3Icon,
   BookOpenIcon,
   ChevronDownIcon,
@@ -16,6 +19,7 @@ import {
   PencilSquareIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { auth } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 import ReadingTestCreator from "./CreateMockTest/ReadingTestCreator/page";
 import WritingTestCreator from "./CreateMockTest/WritingTestCreator/page";
@@ -190,12 +194,14 @@ function CreatorActionButton({ onClick, children }) {
 
 // Render creator dashboard shell
 export default function CreatorPage() {
+  const router = useRouter();
   const isAuthorized = useRequireRole("creator");
   const readingTestCreatorRef = useRef(null);
   const writingTestCreatorRef = useRef(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSectionKey, setOpenSectionKey] = useState("mock-exams");
   const [activeItemKey, setActiveItemKey] = useState("reading-test");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const activeItem = allSidebarItems.find((item) => item.key === activeItemKey);
 
@@ -218,6 +224,21 @@ export default function CreatorPage() {
     if (activeItemKey === "writing-test") {
       writingTestCreatorRef.current?.openCreateNew();
       return;
+    }
+  }
+
+  async function handleLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    try {
+      setIsLoggingOut(true);
+      await signOut(auth);
+      router.replace("/login");
+    } catch (error) {
+      console.error("[Creator] Logout failed:", error);
+      setIsLoggingOut(false);
     }
   }
 
@@ -272,6 +293,40 @@ export default function CreatorPage() {
               />
             ))}
           </nav>
+
+          <div className="mt-auto pt-4">
+            <button
+              type="button"
+              title={isCollapsed ? "Logout" : undefined}
+              className="w-full rounded-xl px-3 py-3 text-left font-semibold transition"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: isCollapsed ? "center" : "flex-start",
+                gap: "0.75rem",
+                border: "1px solid #b42318",
+                backgroundColor: "#7a0f0f",
+                color: "#ffe2e0",
+              }}
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.backgroundColor = "#991b1b";
+                event.currentTarget.style.borderColor = "#dc2626";
+                event.currentTarget.style.color = "#ffffff";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.backgroundColor = "#7a0f0f";
+                event.currentTarget.style.borderColor = "#b42318";
+                event.currentTarget.style.color = "#ffe2e0";
+              }}
+            >
+              <ArrowLeftOnRectangleIcon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && (
+                <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+              )}
+            </button>
+          </div>
         </div>
       </aside>
 
