@@ -113,3 +113,25 @@ Created folders:
 - Extracted Writing test persistence logic into:
   - `lib/tests/writing-tests.js`
 - Switched image uploads to resumable Firebase Storage uploads with progress/status handling
+
+## Reading Test Builder Work - 2026-04-28
+
+- Added Reading Test creator flow in Creator Dashboard
+- Added supported question builders for:
+  - True / False / Not Given
+  - Multiple Choice
+  - Matching Information
+  - Summary Completion
+  - Table Completion
+- Added centered unavailable-builder popup with `OK` button for unsupported reading question types
+- Added Table Completion builder with:
+  - add row
+  - add column
+  - editable column headings
+  - auto-detection of numbered dotted blanks inside table cells
+  - correct-answer inputs generated below the table
+- Updated Reading preview rendering so table-completion blanks appear as inline answer inputs inside table cells
+- Added Reading test persistence support for:
+  - table completion question groups
+  - answer key generation for reading question variants
+- Updated Reading test dashboard question counting to better reflect recognized saved questions for existing tests
