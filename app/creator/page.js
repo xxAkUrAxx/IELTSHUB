@@ -841,7 +841,16 @@ function WritingTestCard({ test, onDelete, onEdit }) {
 }
 
 function ReadingTestCard({ test, onDelete, onEdit }) {
-  const sectionQuestionCount = Array.isArray(test.sections)
+  const reconstructedForm = createReadingFormFromTest(test);
+  const reconstructedQuestionCount = [1, 2, 3].reduce((count, sectionNumber) => {
+    const questionsField = `section${sectionNumber}Questions`;
+    const sectionQuestionGroups = Array.isArray(reconstructedForm[questionsField])
+      ? reconstructedForm[questionsField]
+      : [];
+
+    return count + flattenSectionQuestionItems(sectionQuestionGroups).length;
+  }, 0);
+  const rawSectionQuestionCount = Array.isArray(test.sections)
     ? test.sections.reduce(
         (count, section) =>
           count +
@@ -856,6 +865,12 @@ function ReadingTestCard({ test, onDelete, onEdit }) {
         0
       )
     : 0;
+  const answerKeyQuestionCount = Object.keys(test.answerKey || {}).length;
+  const sectionQuestionCount = Math.max(
+    reconstructedQuestionCount,
+    rawSectionQuestionCount,
+    answerKeyQuestionCount
+  );
 
   return (
     <article className="card border border-base-300 bg-base-100 shadow-sm">
