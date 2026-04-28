@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const tfngOptions = ["TRUE", "FALSE", "NOT GIVEN"];
+const paragraphLetterPattern = /^([A-Z])(?:[\.\)]|\s|$)/;
 const DEFAULT_LEFT_WIDTH = 60;
 const MIN_LEFT_WIDTH = 40;
 const MAX_LEFT_WIDTH = 70;
@@ -76,13 +77,55 @@ function renderTfngGroup(question, answers, onChange) {
   );
 }
 
+function getTableCellSegments(cellValue) {
+  const normalizedValue = String(cellValue || "");
+  const matches = [...normalizedValue.matchAll(/(\d+)\s*\.{5,}/g)];
+
+  if (matches.length === 0) {
+    return [{ type: "text", value: normalizedValue }];
+  }
+
+  const segments = [];
+  let lastIndex = 0;
+
+  matches.forEach((match) => {
+    const matchIndex = match.index || 0;
+
+    if (matchIndex > lastIndex) {
+      segments.push({
+        type: "text",
+        value: normalizedValue.slice(lastIndex, matchIndex),
+      });
+    }
+
+    segments.push({
+      type: "blank",
+      questionNumber: match[1],
+    });
+    lastIndex = matchIndex + match[0].length;
+  });
+
+  if (lastIndex < normalizedValue.length) {
+    segments.push({
+      type: "text",
+      value: normalizedValue.slice(lastIndex),
+    });
+  }
+
+  return segments;
+}
+
 function renderTableQuestion(question, answers, onChange) {
   const headers = question.table?.headers || [];
   const rows = question.table?.rows || [];
 
   return (
     <div className="mb-6 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
-      <p className="mb-2 text-sm font-medium text-base-content/60">Table Completion</p>
+      <p className="mb-2 text-sm font-medium text-base-content/60">
+        {question.questionRange
+          ? `Questions ${question.questionRange}`
+          : "Table Completion"}
+      </p>
       {question.instructions ? (
         <p className="mb-4 text-base leading-7 text-base-content">{question.instructions}</p>
       ) : null}
@@ -106,19 +149,26 @@ function renderTableQuestion(question, answers, onChange) {
               <tr key={`row-${rowIndex}`}>
                 {row.cells.map((cell, cellIndex) => (
                   <td key={`cell-${rowIndex}-${cellIndex}`}>
-                    {cellIndex === row.blankIndex ? (
-                      <input
-                        type="text"
-                        value={answers[row.questionNumber || rowIndex] || ""}
-                        onChange={(event) =>
-                          onChange(row.questionNumber || rowIndex, event.target.value)
-                        }
-                        className="input input-bordered w-full"
-                        placeholder={row.questionNumber ? `Q${row.questionNumber}` : "Answer"}
-                      />
-                    ) : (
-                      cell
-                    )}
+                    <div className="whitespace-pre-wrap leading-7">
+                      {getTableCellSegments(cell).map((segment, segmentIndex) =>
+                        segment.type === "blank" ? (
+                          <input
+                            key={`blank-${rowIndex}-${cellIndex}-${segment.questionNumber}-${segmentIndex}`}
+                            type="text"
+                            value={answers[segment.questionNumber] || ""}
+                            onChange={(event) =>
+                              onChange(segment.questionNumber, event.target.value)
+                            }
+                            className="mx-2 inline-flex w-40 rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-sm"
+                            placeholder={`Q${segment.questionNumber}`}
+                          />
+                        ) : (
+                          <span key={`text-${rowIndex}-${cellIndex}-${segmentIndex}`}>
+                            {segment.value}
+                          </span>
+                        )
+                      )}
+                    </div>
                   </td>
                 ))}
               </tr>
@@ -128,6 +178,112 @@ function renderTableQuestion(question, answers, onChange) {
       </div>
     </div>
   );
+}
+
+function renderMatchingInformationQuestion(question, answers, onChange) {
+  const possibleAnswers = Array.isArray(question.possibleAnswers)
+    ? question.possibleAnswers
+    : [];
+
+  return (
+    <div className="mb-6 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+      <p className="mb-2 text-sm font-medium text-base-content/60">
+        {question.questionRange
+          ? `Questions ${question.questionRange}`
+          : "Matching Information"}
+      </p>
+      {question.instructions ? (
+        <p className="mb-4 text-base leading-7 text-base-content">
+          {question.instructions}
+        </p>
+      ) : null}
+
+      <div className="space-y-4">
+        {question.questions.map((item, index) => (
+          <div
+            key={`matching-information-${item.number || index}`}
+            className="rounded-xl border border-base-300 bg-base-200/40 p-4"
+          >
+            <p className="mb-3 text-sm font-medium text-base-content/70">
+              {item.number ? `${item.number}. ` : ""}
+              {item.question}
+            </p>
+            {possibleAnswers.length > 0 ? (
+              <select
+                className="select select-bordered w-full max-w-md"
+                value={answers[item.number || index] || ""}
+                onChange={(event) =>
+                  onChange(item.number || index, event.target.value)
+                }
+              >
+                <option value="">Select answer</option>
+                {possibleAnswers.map((option) => (
+                  <option key={`${item.number}-${option}`} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={answers[item.number || index] || ""}
+                onChange={(event) =>
+                  onChange(item.number || index, event.target.value.toUpperCase())
+                }
+                className="input input-bordered w-28 uppercase"
+                placeholder="A"
+                maxLength={2}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderPassageParagraphs(passage) {
+  return String(passage || "")
+    .split(/\n\s*\n/)
+    .filter((paragraph) => paragraph.trim().length > 0)
+    .map((paragraph, index) => {
+      const trimmedParagraph = paragraph.trim();
+      const lines = trimmedParagraph.split(/\r?\n/);
+      const firstLine = lines[0]?.trim() || "";
+      const match = firstLine.match(paragraphLetterPattern);
+
+      if (!match) {
+        return (
+          <p
+            key={`passage-paragraph-${index}`}
+            className="whitespace-pre-line text-base leading-8 text-base-content"
+          >
+            {trimmedParagraph}
+          </p>
+        );
+      }
+
+      const letter = match[1];
+      const normalizedFirstLine = firstLine.replace(paragraphLetterPattern, "").trim();
+      const remainingLines = lines.slice(1).join("\n").trim();
+      const paragraphBody = [normalizedFirstLine, remainingLines]
+        .filter(Boolean)
+        .join("\n");
+
+      return (
+        <article
+          key={`passage-paragraph-${index}`}
+          className="rounded-2xl border border-base-300 bg-base-200/20 p-5"
+        >
+          <p className="mb-3 text-2xl font-black uppercase tracking-[0.22em] text-[#1b2ea8]">
+            {letter}
+          </p>
+          <p className="whitespace-pre-line text-base leading-8 text-base-content">
+            {paragraphBody}
+          </p>
+        </article>
+      );
+    });
 }
 
 export default function ReadingTestMode({ testData }) {
@@ -268,12 +424,17 @@ export default function ReadingTestMode({ testData }) {
                     Section {section.sectionNumber || sectionIndex + 1}
                   </p>
                   {section.title ? (
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                    <h2 className="mt-2 text-3xl font-black leading-tight tracking-tight text-base-content">
                       {section.title}
                     </h2>
                   ) : null}
-                  <div className="mt-6 whitespace-pre-line text-base leading-8 text-base-content">
-                    {section.passage}
+                  {section.subtitle ? (
+                    <p className="mt-3 text-lg font-medium leading-8 text-base-content/75">
+                      {section.subtitle}
+                    </p>
+                  ) : null}
+                  <div className="mt-6 space-y-4">
+                    {renderPassageParagraphs(section.passage)}
                   </div>
                 </article>
               ))}
@@ -329,6 +490,11 @@ export default function ReadingTestMode({ testData }) {
                         {section.title}
                       </h2>
                     ) : null}
+                    {section.subtitle ? (
+                      <p className="mt-2 text-sm leading-6 text-base-content/70">
+                        {section.subtitle}
+                      </p>
+                    ) : null}
                   </div>
 
                   {section.questions.map((question, questionIndex) => {
@@ -344,6 +510,21 @@ export default function ReadingTestMode({ testData }) {
                       return (
                         <div key={`question-${sectionIndex}-${questionIndex}`}>
                           {renderTfngGroup(question, answers, updateAnswer)}
+                        </div>
+                      );
+                    }
+
+                    if (
+                      question.type === "MATCHING_INFORMATION" &&
+                      Array.isArray(question.questions)
+                    ) {
+                      return (
+                        <div key={`question-${sectionIndex}-${questionIndex}`}>
+                          {renderMatchingInformationQuestion(
+                            question,
+                            answers,
+                            updateAnswer
+                          )}
                         </div>
                       );
                     }
