@@ -20,6 +20,10 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      if (!auth) {
+        throw new Error("Firebase auth is not configured.");
+      }
+
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
@@ -85,6 +89,11 @@ export default function LoginPage() {
       throw new Error("No valid role found for this user.");
     } catch (loginError) {
       console.error("[Login] Login flow failed:", loginError);
+
+      if (loginError?.message === "Firebase auth is not configured.") {
+        setError("Firebase is not configured for this deployment.");
+        return;
+      }
 
       if (
         loginError?.message === "User document not found." ||

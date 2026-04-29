@@ -260,6 +260,10 @@ export default function CreatorPage() {
     }
 
     try {
+      if (!auth) {
+        throw new Error("Firebase auth is not configured.");
+      }
+
       setIsLoggingOut(true);
       await signOut(auth);
       router.replace("/login");
