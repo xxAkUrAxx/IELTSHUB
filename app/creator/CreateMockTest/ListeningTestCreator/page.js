@@ -18,20 +18,24 @@ import {
   saveListeningTest,
 } from "../../../../lib/tests/listening-tests";
 
+// Get today's date
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
 
+// Make unique ids
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Free preview link
 function revokePreviewUrl(url) {
   if (typeof url === "string" && url.startsWith("blob:")) {
     URL.revokeObjectURL(url);
   }
 }
 
+// Limit async wait
 async function withTimeout(promise, timeoutMs, message) {
   let timerId;
 
@@ -48,6 +52,7 @@ async function withTimeout(promise, timeoutMs, message) {
   }
 }
 
+// Show created date
 function formatCreatedAt(createdAt) {
   if (!createdAt) {
     return "Unknown date";
@@ -65,6 +70,7 @@ function formatCreatedAt(createdAt) {
   return parsedDate.toLocaleDateString();
 }
 
+// Color difficulty badge
 function getDifficultyTextColor(difficulty) {
   const normalizedDifficulty = String(difficulty).toLowerCase();
 
@@ -85,6 +91,7 @@ const difficultyOptions = [
   { value: "hard", label: "Hard", color: "#AE2448" },
 ];
 
+// Build page theme
 function getListeningTheme(themeMode = "dark") {
   const isLightMode = themeMode === "light";
 
@@ -191,6 +198,7 @@ const answerTypeOptions = {
   },
 };
 
+// New TFNG row
 function createEmptyTfngQuestion(answerType = "TFNG") {
   return {
     id: createId(),
@@ -201,6 +209,7 @@ function createEmptyTfngQuestion(answerType = "TFNG") {
   };
 }
 
+// New choice row
 function createEmptyMultipleChoiceQuestion() {
   return {
     id: createId(),
@@ -217,6 +226,7 @@ function createEmptyMultipleChoiceQuestion() {
   };
 }
 
+// New table row
 function createEmptyTableCompletionRow(columnCount = 2) {
   return {
     id: createId(),
@@ -224,6 +234,7 @@ function createEmptyTableCompletionRow(columnCount = 2) {
   };
 }
 
+// Split nonempty lines
 function parseNonEmptyLines(value) {
   return String(value || "")
     .split(/\r?\n/)
@@ -231,6 +242,7 @@ function parseNonEmptyLines(value) {
     .filter(Boolean);
 }
 
+// New matching row
 function createEmptyMatchingInformationQuestion() {
   return {
     id: createId(),
@@ -240,6 +252,7 @@ function createEmptyMatchingInformationQuestion() {
   };
 }
 
+// Parse matching lines
 function parseMatchingQuestionLines(value) {
   return parseNonEmptyLines(value).map((line, index) => {
     const match = line.match(/^(\d+)\s+(.+)$/);
@@ -260,6 +273,7 @@ function parseMatchingQuestionLines(value) {
   });
 }
 
+// Next question number
 function getNextListeningQuestionNumber(questions, existingQuestionNumbers = []) {
   const allNumbers = [
     ...existingQuestionNumbers,
@@ -273,6 +287,7 @@ function getNextListeningQuestionNumber(questions, existingQuestionNumbers = [])
   return String(Math.min(40, Math.max(...allNumbers) + 1));
 }
 
+// First group number
 function getQuestionGroupFirstNumber(questionGroup) {
   if (!Array.isArray(questionGroup?.items) || questionGroup.items.length === 0) {
     return Number.POSITIVE_INFINITY;
@@ -282,6 +297,7 @@ function getQuestionGroupFirstNumber(questionGroup) {
   return Number.isInteger(firstNumber) ? firstNumber : Number.POSITIVE_INFINITY;
 }
 
+// Sort by number
 function sortQuestionItemsByNumber(items = []) {
   return [...items].sort((leftItem, rightItem) => {
     const leftNumber = Number(leftItem?.questionNumber);
@@ -303,12 +319,14 @@ function sortQuestionItemsByNumber(items = []) {
   });
 }
 
+// Clean cell preview
 function buildTableCellPreviewText(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+// Flatten question items
 function flattenSectionQuestionItems(questionGroups = []) {
   return questionGroups.flatMap((questionGroup) => {
     const sortedItems = sortQuestionItemsByNumber(questionGroup.items);
@@ -345,6 +363,7 @@ function flattenSectionQuestionItems(questionGroups = []) {
   });
 }
 
+// Parse choice text
 function parseMultipleChoiceQuestions(sourceText) {
   const lines = String(sourceText || "")
     .split(/\r?\n/)
@@ -406,6 +425,7 @@ function parseMultipleChoiceQuestions(sourceText) {
   }));
 }
 
+// Find table blanks
 function extractTableCompletionQuestions(tableRows = [], previousQuestions = []) {
   const extractedQuestions = [];
 
@@ -446,6 +466,7 @@ function extractTableCompletionQuestions(tableRows = [], previousQuestions = [])
   return extractedQuestions;
 }
 
+// Main action button
 function CreatorActionButton({ onClick, children, themeMode }) {
   const theme = getListeningTheme(themeMode);
 
@@ -472,6 +493,7 @@ function CreatorActionButton({ onClick, children, themeMode }) {
   );
 }
 
+// Show test card
 function ListeningTestCard({ test, onDelete, onEdit }) {
   const sectionQuestionCount = Array.isArray(test.sections)
     ? test.sections.reduce(
@@ -544,6 +566,7 @@ function ListeningTestCard({ test, onDelete, onEdit }) {
   );
 }
 
+// Show test editor
 function ListeningTestPanel({
   formValues,
   questionTypeSelections,
@@ -942,6 +965,7 @@ function ListeningTestPanel({
   );
 }
 
+// Show TFNG dialog
 function TfngQuestionDialog({
   sectionNumber,
   questions,
@@ -1114,6 +1138,7 @@ function TfngQuestionDialog({
   );
 }
 
+// Show matching dialog
 function MatchingInformationDialog({
   sectionNumber,
   questions,
@@ -1355,6 +1380,7 @@ function MatchingInformationDialog({
   );
 }
 
+// Show choice dialog
 function MultipleChoiceDialog({
   sectionNumber,
   instructions,
@@ -1585,6 +1611,7 @@ function MultipleChoiceDialog({
   );
 }
 
+// Show table dialog
 function TableCompletionDialog({
   sectionNumber,
   instructions,
@@ -1812,6 +1839,7 @@ function TableCompletionDialog({
   );
 }
 
+// New empty form
 function createEmptyListeningForm() {
   return {
     testName: "",
@@ -1832,6 +1860,7 @@ function createEmptyListeningForm() {
   };
 }
 
+// Reset type picks
 function createEmptyQuestionTypeSelections() {
   return {
     1: "",
@@ -1841,6 +1870,7 @@ function createEmptyQuestionTypeSelections() {
   };
 }
 
+// Reset audio state
 function createEmptyAudioState() {
   return {
     1: "",
@@ -1850,6 +1880,7 @@ function createEmptyAudioState() {
   };
 }
 
+// Rebuild saved form
 function createListeningFormFromTest(test) {
   const nextForm = createEmptyListeningForm();
   const matchingDifficulty =
