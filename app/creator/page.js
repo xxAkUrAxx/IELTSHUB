@@ -23,6 +23,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { auth } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
+import ListeningTestCreator from "./CreateMockTest/ListeningTestCreator/page";
 import ReadingTestCreator from "./CreateMockTest/ReadingTestCreator/page";
 import WritingTestCreator from "./CreateMockTest/WritingTestCreator/page";
 
@@ -198,6 +199,7 @@ function CreatorActionButton({ onClick, children }) {
 export default function CreatorPage() {
   const router = useRouter();
   const isAuthorized = useRequireRole("creator");
+  const listeningTestCreatorRef = useRef(null);
   const readingTestCreatorRef = useRef(null);
   const writingTestCreatorRef = useRef(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -238,6 +240,10 @@ export default function CreatorPage() {
     if (activeItemKey === "writing-test") {
       writingTestCreatorRef.current?.openCreateNew();
       return;
+    }
+
+    if (activeItemKey === "listening-test") {
+      listeningTestCreatorRef.current?.openCreateNew();
     }
   }
 
@@ -385,7 +391,9 @@ export default function CreatorPage() {
                 {activeItem?.label || "Creator Dashboard"}
               </h1>
 
-              {activeItemKey === "reading-test" || activeItemKey === "writing-test" ? (
+              {activeItemKey === "reading-test" ||
+              activeItemKey === "writing-test" ||
+              activeItemKey === "listening-test" ? (
                 <CreatorActionButton onClick={handleCreateNew}>
                   <PlusIcon className="h-5 w-5" />
                   <span>Create New</span>
@@ -397,6 +405,11 @@ export default function CreatorPage() {
               <ReadingTestCreator
                 ref={readingTestCreatorRef}
                 isSidebarCollapsed={isCollapsed}
+                themeMode={themeMode}
+              />
+            ) : activeItemKey === "listening-test" ? (
+              <ListeningTestCreator
+                ref={listeningTestCreatorRef}
                 themeMode={themeMode}
               />
             ) : activeItemKey === "writing-test" ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { calculateMultipleChoiceScore } from "../../../lib/tests/answer-utils";
 
 const tfngOptions = ["TRUE", "FALSE", "NOT GIVEN"];
 const paragraphLetterPattern = /^([A-Z])(?:[\.\)]|\s|$)/;
@@ -237,6 +238,132 @@ function renderMatchingInformationQuestion(question, answers, onChange) {
             )}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function getMultipleChoiceSelectionCount(questionItem, instructions) {
+  const explicitSelectionCount =
+    Number(questionItem?.selectionCount) > 0
+      ? Number(questionItem.selectionCount)
+      : Array.isArray(questionItem?.correctAnswers) &&
+          questionItem.correctAnswers.length > 0
+        ? questionItem.correctAnswers.length
+        : 1;
+
+  if (explicitSelectionCount > 1) {
+    return explicitSelectionCount;
+  }
+
+  const helperText = `${questionItem?.question || ""} ${instructions || ""}`.toUpperCase();
+
+  if (/\bCHOOSE\s+TWO\b|\bSELECT\s+TWO\b/.test(helperText)) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function toggleMultipleChoiceAnswer(currentValue, optionLabel, maxSelections) {
+  const currentAnswers = Array.isArray(currentValue)
+    ? currentValue
+    : currentValue
+      ? [currentValue]
+      : [];
+
+  if (currentAnswers.includes(optionLabel)) {
+    return currentAnswers.filter((value) => value !== optionLabel);
+  }
+
+  if (maxSelections <= 1) {
+    return [optionLabel];
+  }
+
+  if (currentAnswers.length >= maxSelections) {
+    return currentAnswers;
+  }
+
+  return [...currentAnswers, optionLabel];
+}
+
+function renderMultipleChoiceQuestion(question, answers, onChange) {
+  return (
+    <div className="mb-6 rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm">
+      <p className="mb-2 text-sm font-medium text-base-content/60">
+        {question.questionRange
+          ? `Questions ${question.questionRange}`
+          : "Multiple Choice"}
+      </p>
+      {question.instructions ? (
+        <p className="mb-4 text-base leading-7 text-base-content">
+          {question.instructions}
+        </p>
+      ) : null}
+
+      <div className="space-y-4">
+        {question.questions.map((item, index) => {
+          const answerKey = item.number || index;
+          const maxSelections = getMultipleChoiceSelectionCount(
+            item,
+            question.instructions
+          );
+          const selectedAnswers = Array.isArray(answers[answerKey])
+            ? answers[answerKey]
+            : answers[answerKey]
+              ? [answers[answerKey]]
+              : [];
+          const currentScore = calculateMultipleChoiceScore(
+            selectedAnswers,
+            item.correctAnswers || item.acceptedAnswers || item.correctAnswer
+          );
+
+          return (
+            <div
+              key={`multiple-choice-${answerKey}`}
+              className="rounded-xl border border-base-300 bg-base-200/40 p-4"
+            >
+              <p className="mb-3 text-sm font-medium text-base-content/70">
+                {item.number ? `${item.number}. ` : ""}
+                {item.question}
+              </p>
+              <div className="space-y-2">
+                {(Array.isArray(item.options) ? item.options : []).map((option) => (
+                  <label
+                    key={`${answerKey}-${option.label}`}
+                    className="label cursor-pointer justify-start gap-3 rounded-lg border border-base-300 bg-base-100 px-3 py-3"
+                  >
+                    <input
+                      type={maxSelections > 1 ? "checkbox" : "radio"}
+                      name={`multiple-choice-${answerKey}`}
+                      className={maxSelections > 1 ? "checkbox checkbox-sm" : "radio radio-sm"}
+                      checked={selectedAnswers.includes(option.label)}
+                      onChange={() =>
+                        onChange(
+                          answerKey,
+                          toggleMultipleChoiceAnswer(
+                            answers[answerKey],
+                            option.label,
+                            maxSelections
+                          )
+                        )
+                      }
+                    />
+                    <span className="label-text">
+                      <strong className="mr-2">{option.label}</strong>
+                      {option.text}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {maxSelections > 1 ? (
+                <p className="mt-3 text-xs text-base-content/60">
+                  Select up to {maxSelections}. Current score: {currentScore}/{maxSelections}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -510,6 +637,21 @@ export default function ReadingTestMode({ testData }) {
                       return (
                         <div key={`question-${sectionIndex}-${questionIndex}`}>
                           {renderTfngGroup(question, answers, updateAnswer)}
+                        </div>
+                      );
+                    }
+
+                    if (
+                      question.type === "MULTIPLE_CHOICE" &&
+                      Array.isArray(question.questions)
+                    ) {
+                      return (
+                        <div key={`question-${sectionIndex}-${questionIndex}`}>
+                          {renderMultipleChoiceQuestion(
+                            question,
+                            answers,
+                            updateAnswer
+                          )}
                         </div>
                       );
                     }

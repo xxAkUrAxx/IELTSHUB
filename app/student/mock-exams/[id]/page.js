@@ -45,6 +45,35 @@ function normalizeQuestion(question) {
     };
   }
 
+  if (question?.type === "MULTIPLE_CHOICE" && Array.isArray(question.questions)) {
+    return {
+      type: "MULTIPLE_CHOICE",
+      instructions: question.instructions || "",
+      questionRange: question.questionRange || "",
+      questions: question.questions.map((item) => ({
+        number: item.number || "",
+        question: item.question || "",
+        options: Array.isArray(item.options) ? item.options : [],
+        correctAnswer: item.correctAnswer || "",
+        correctAnswers: Array.isArray(item.correctAnswers)
+          ? item.correctAnswers
+          : Array.isArray(item.acceptedAnswers)
+            ? item.acceptedAnswers
+            : item.correctAnswer
+              ? [item.correctAnswer]
+              : [],
+        selectionCount:
+          Number(item.selectionCount) > 0
+            ? Number(item.selectionCount)
+            : Array.isArray(item.correctAnswers) && item.correctAnswers.length > 0
+              ? item.correctAnswers.length
+              : Array.isArray(item.acceptedAnswers) && item.acceptedAnswers.length > 0
+                ? item.acceptedAnswers.length
+                : 1,
+      })),
+    };
+  }
+
   return {
     number: question?.number || "",
     type: question?.type || "FILL_BLANK",

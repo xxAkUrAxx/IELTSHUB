@@ -358,7 +358,7 @@ function parseMultipleChoiceQuestions(sourceText) {
       return;
     }
 
-    const optionMatch = line.match(/^([A-D])[\.\)]?\s+(.+)$/i);
+    const optionMatch = line.match(/^([A-E])[\.\)]?\s+(.+)$/i);
 
     if (optionMatch) {
       currentBlock.optionLines.push({
@@ -387,6 +387,7 @@ function parseMultipleChoiceQuestions(sourceText) {
     prompt: block.promptLines.join(" ").trim(),
     options: block.optionLines,
     correctAnswer: "",
+    correctAnswers: [],
   }));
 }
 
@@ -401,8 +402,10 @@ function createEmptyMultipleChoiceQuestion() {
       { label: "B", text: "" },
       { label: "C", text: "" },
       { label: "D", text: "" },
+      { label: "E", text: "" },
     ],
     correctAnswer: "",
+    correctAnswers: [],
   };
 }
 
@@ -665,6 +668,13 @@ function createReadingFormFromTest(test) {
                             }))
                           : [],
                         correctAnswer: question.correctAnswer || "",
+                        correctAnswers: Array.isArray(question.correctAnswers)
+                          ? question.correctAnswers
+                          : Array.isArray(question.acceptedAnswers)
+                            ? question.acceptedAnswers
+                            : question.correctAnswer
+                              ? [question.correctAnswer]
+                              : [],
                       }))
                     : [],
                 },
@@ -1122,7 +1132,10 @@ function ReadingTestPanel({
                                   ))}
                                 </div>
                                 <p className="mt-3 text-sm font-medium text-primary">
-                                  Correct answer: {item.correctAnswer || "Not set"}
+                                  Correct answer: {Array.isArray(item.correctAnswers) &&
+                                  item.correctAnswers.length > 0
+                                    ? item.correctAnswers.join(", ")
+                                    : item.correctAnswer || "Not set"}
                                 </p>
                               </>
                             ) : item.questionType === "MATCHING_INFORMATION" ? (
@@ -1959,10 +1972,12 @@ function MultipleChoiceDialog({
                             >
                               <div className="flex items-center gap-4">
                                 <input
-                                  type="radio"
-                                  name={`multiple-choice-${question.id}`}
-                                  className="radio radio-sm"
-                                  checked={question.correctAnswer === option.label}
+                                  type="checkbox"
+                                  className="checkbox checkbox-sm"
+                                  checked={(Array.isArray(question.correctAnswers)
+                                    ? question.correctAnswers
+                                    : []
+                                  ).includes(option.label)}
                                   onChange={() =>
                                     onChangeQuestionAnswer(question.id, option.label)
                                   }
@@ -2884,11 +2899,16 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
         return {
           ...question,
           id: matchingPreviousQuestion?.id || question.id,
-          correctAnswer: question.options.some(
-            (option) => option.label === matchingPreviousQuestion?.correctAnswer
-          )
-            ? matchingPreviousQuestion.correctAnswer
-            : "",
+          correctAnswer: matchingPreviousQuestion?.correctAnswer || "",
+          correctAnswers: Array.isArray(matchingPreviousQuestion?.correctAnswers)
+            ? matchingPreviousQuestion.correctAnswers.filter((savedAnswer) =>
+                question.options.some((option) => option.label === savedAnswer)
+              )
+            : question.options.some(
+                  (option) => option.label === matchingPreviousQuestion?.correctAnswer
+                )
+              ? [matchingPreviousQuestion.correctAnswer]
+              : [],
         };
       })
     );
@@ -2968,6 +2988,17 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
         question.id === questionId
           ? {
               ...question,
+              correctAnswers: (Array.isArray(question.correctAnswers)
+                ? question.correctAnswers
+                : []
+              ).includes(value)
+                ? question.correctAnswers.filter((answer) => answer !== value)
+                : [
+                    ...(Array.isArray(question.correctAnswers)
+                      ? question.correctAnswers
+                      : []),
+                    value,
+                  ].sort(),
               correctAnswer: value,
             }
           : question
@@ -3517,11 +3548,12 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
           !question.prompt.trim() ||
           !Array.isArray(question.options) ||
           question.options.filter((option) => String(option.text).trim()).length < 2 ||
-          !String(question.correctAnswer).trim()
+          !Array.isArray(question.correctAnswers) ||
+          question.correctAnswers.length === 0
       )
     ) {
       setMultipleChoiceDialogError(
-        "Each multiple choice question needs a number, prompt, at least two options, and one selected correct answer."
+        "Each multiple choice question needs a number, prompt, at least two options, and at least one selected correct answer."
       );
       return;
     }
@@ -3562,7 +3594,8 @@ const ReadingTestCreator = forwardRef(function ReadingTestCreator(
         ...question,
         questionNumber: String(question.questionNumber).trim(),
         prompt: question.prompt.trim(),
-        correctAnswer: String(question.correctAnswer).trim(),
+        correctAnswer: question.correctAnswers.join(" / "),
+        correctAnswers: question.correctAnswers,
         options: question.options
           .filter((option) => String(option.text).trim())
           .map((option) => ({
