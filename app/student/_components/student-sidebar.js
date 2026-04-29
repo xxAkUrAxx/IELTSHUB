@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AcademicCapIcon,
   ArrowLeftEndOnRectangleIcon,
   Bars3Icon,
+  BookOpenIcon,
   ClipboardDocumentCheckIcon,
   ComputerDesktopIcon,
   HomeIcon,
+  MicrophoneIcon,
+  SpeakerWaveIcon,
   MusicalNoteIcon,
+  MoonIcon,
   PencilSquareIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  SunIcon,
 } from "@heroicons/react/24/outline";
 
 const practiceItems = [
@@ -41,26 +46,26 @@ const mockExamItems = [
   {
     href: "/student/mock-exams/listening",
     label: "Listening",
-    icon: AcademicCapIcon,
-    exact: true,
+    icon: SpeakerWaveIcon,
+    exact: false,
   },
   {
     href: "/student/mock-exams/reading",
     label: "Reading",
-    icon: MusicalNoteIcon,
-    exact: true,
+    icon: BookOpenIcon,
+    exact: false,
   },
   {
     href: "/student/mock-exams/writing",
     label: "Writing",
     icon: PencilSquareIcon,
-    exact: true,
+    exact: false,
   },
   {
     href: "/student/mock-exams/speaking",
     label: "Speaking",
-    icon: ClipboardDocumentCheckIcon,
-    exact: true,
+    icon: MicrophoneIcon,
+    exact: false,
   },
 ];
 
@@ -137,13 +142,28 @@ function SidebarSection({
   );
 }
 
-export default function StudentSidebar() {
+export default function StudentSidebar({
+  themeMode = "dark",
+  onToggleTheme,
+}) {
   const pathname = usePathname();
-  const isPracticeRouteActive = pathname === "/student/practice";
-  const isMockRouteActive = pathname === "/student/mock-exams";
+  const isPracticeRouteActive =
+    pathname === "/student/practice" || pathname.startsWith("/student/practice/");
+  const isMockRouteActive =
+    pathname === "/student/mock-exams" || pathname.startsWith("/student/mock-exams/");
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isPracticeOpen, setIsPracticeOpen] = useState(false);
-  const [isMockOpen, setIsMockOpen] = useState(false);
+  const [isPracticeOpen, setIsPracticeOpen] = useState(isPracticeRouteActive);
+  const [isMockOpen, setIsMockOpen] = useState(isMockRouteActive);
+
+  useEffect(() => {
+    if (isPracticeRouteActive) {
+      setIsPracticeOpen(true);
+    }
+
+    if (isMockRouteActive) {
+      setIsMockOpen(true);
+    }
+  }, [isMockRouteActive, isPracticeRouteActive]);
 
   return (
     <aside
@@ -221,6 +241,24 @@ export default function StudentSidebar() {
         </nav>
 
         <div className="mt-auto pt-4">
+          <button
+            type="button"
+            title={isCollapsed ? "Toggle theme" : undefined}
+            className="mb-3 flex w-full items-center rounded-xl border border-base-300 bg-base-100 px-3 py-3 text-left font-semibold text-base-content transition hover:bg-base-200"
+            onClick={onToggleTheme}
+          >
+            {themeMode === "dark" ? (
+              <SunIcon className="h-5 w-5 shrink-0" />
+            ) : (
+              <MoonIcon className="h-5 w-5 shrink-0" />
+            )}
+            {!isCollapsed && (
+              <span className="ml-3">
+                {themeMode === "dark" ? "Light mode" : "Dark mode"}
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             className="btn btn-ghost h-12 w-full justify-start rounded-xl px-3 normal-case text-base-content/75"
