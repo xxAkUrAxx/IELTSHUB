@@ -17,6 +17,10 @@ import {
   listListeningTests,
   saveListeningTest,
 } from "../../../../lib/tests/listening-tests";
+import {
+  countQuestionUnitsFromAnswerKey,
+  countQuestionUnitsFromSections,
+} from "../../../../lib/tests/question-count";
 
 // Get today's date
 function getTodayDate() {
@@ -495,21 +499,10 @@ function CreatorActionButton({ onClick, children, themeMode }) {
 
 // Show test card
 function ListeningTestCard({ test, onDelete, onEdit }) {
-  const sectionQuestionCount = Array.isArray(test.sections)
-    ? test.sections.reduce(
-        (count, section) =>
-          count +
-          (Array.isArray(section.questions)
-            ? section.questions.reduce(
-                (sectionCount, group) =>
-                  sectionCount +
-                  (Array.isArray(group.questions) ? group.questions.length : 0),
-                0
-              )
-            : 0),
-        0
-      )
-    : 0;
+  const sectionQuestionCount = Math.max(
+    countQuestionUnitsFromSections(test.sections),
+    countQuestionUnitsFromAnswerKey(test.answerKey)
+  );
   const audioCount = Array.isArray(test.sections)
     ? test.sections.filter((section) => section.audioUrl || section.audioPath).length
     : 0;

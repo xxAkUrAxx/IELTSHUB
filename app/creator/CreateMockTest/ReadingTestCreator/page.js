@@ -16,6 +16,11 @@ import {
   listReadingTests,
   saveReadingTest,
 } from "../../../../lib/tests/reading-tests";
+import {
+  countQuestionUnitsFromAnswerKey,
+  countQuestionUnitsFromDraftGroups,
+  countQuestionUnitsFromSections,
+} from "../../../../lib/tests/question-count";
 
 // Get today's date
 function getTodayDate() {
@@ -765,24 +770,10 @@ function ReadingTestCard({ test, onDelete, onEdit }) {
       ? reconstructedForm[questionsField]
       : [];
 
-    return count + flattenSectionQuestionItems(sectionQuestionGroups).length;
+    return count + countQuestionUnitsFromDraftGroups(sectionQuestionGroups);
   }, 0);
-  const rawSectionQuestionCount = Array.isArray(test.sections)
-    ? test.sections.reduce(
-        (count, section) =>
-          count +
-          (Array.isArray(section.questions)
-            ? section.questions.reduce(
-                (sectionCount, group) =>
-                  sectionCount +
-                  (Array.isArray(group.questions) ? group.questions.length : 0),
-                0
-              )
-            : 0),
-        0
-      )
-    : 0;
-  const answerKeyQuestionCount = Object.keys(test.answerKey || {}).length;
+  const rawSectionQuestionCount = countQuestionUnitsFromSections(test.sections);
+  const answerKeyQuestionCount = countQuestionUnitsFromAnswerKey(test.answerKey);
   const sectionQuestionCount = Math.max(
     reconstructedQuestionCount,
     rawSectionQuestionCount,
