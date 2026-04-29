@@ -25,6 +25,7 @@ import { auth } from "../../lib/firebase/config";
 import { useRequireRole } from "../../lib/firebase/role-guard";
 import ListeningTestCreator from "./CreateMockTest/ListeningTestCreator/page";
 import ReadingTestCreator from "./CreateMockTest/ReadingTestCreator/page";
+import SpeakingTestCreator from "./CreateMockTest/SpeakingTestCreator/page";
 import WritingTestCreator from "./CreateMockTest/WritingTestCreator/page";
 
 const mockExamItems = [
@@ -201,6 +202,7 @@ export default function CreatorPage() {
   const isAuthorized = useRequireRole("creator");
   const listeningTestCreatorRef = useRef(null);
   const readingTestCreatorRef = useRef(null);
+  const speakingTestCreatorRef = useRef(null);
   const writingTestCreatorRef = useRef(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSectionKey, setOpenSectionKey] = useState("mock-exams");
@@ -244,6 +246,11 @@ export default function CreatorPage() {
 
     if (activeItemKey === "listening-test") {
       listeningTestCreatorRef.current?.openCreateNew();
+      return;
+    }
+
+    if (activeItemKey === "speaking-test") {
+      speakingTestCreatorRef.current?.openCreateNew();
     }
   }
 
@@ -393,7 +400,8 @@ export default function CreatorPage() {
 
               {activeItemKey === "reading-test" ||
               activeItemKey === "writing-test" ||
-              activeItemKey === "listening-test" ? (
+              activeItemKey === "listening-test" ||
+              activeItemKey === "speaking-test" ? (
                 <CreatorActionButton onClick={handleCreateNew}>
                   <PlusIcon className="h-5 w-5" />
                   <span>Create New</span>
@@ -415,6 +423,11 @@ export default function CreatorPage() {
             ) : activeItemKey === "writing-test" ? (
               <WritingTestCreator
                 ref={writingTestCreatorRef}
+                themeMode={themeMode}
+              />
+            ) : activeItemKey === "speaking-test" ? (
+              <SpeakingTestCreator
+                ref={speakingTestCreatorRef}
                 themeMode={themeMode}
               />
             ) : (
