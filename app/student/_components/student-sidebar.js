@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { signOut } from "firebase/auth";
 import {
   AcademicCapIcon,
   ArrowLeftEndOnRectangleIcon,
@@ -20,6 +21,7 @@ import {
   ChevronRightIcon,
   SunIcon,
 } from "@heroicons/react/24/outline";
+import { auth } from "../../../lib/firebase/config";
 
 const practiceItems = [
   {
@@ -154,6 +156,7 @@ export default function StudentSidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isPracticeOpen, setIsPracticeOpen] = useState(isPracticeRouteActive);
   const [isMockOpen, setIsMockOpen] = useState(isMockRouteActive);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (isPracticeRouteActive) {
@@ -164,6 +167,20 @@ export default function StudentSidebar({
       setIsMockOpen(true);
     }
   }, [isMockRouteActive, isPracticeRouteActive]);
+
+  async function handleLogout() {
+    if (isLoggingOut) {
+      return;
+    }
+
+    try {
+      setIsLoggingOut(true);
+      await signOut(auth);
+    } catch (error) {
+      console.error("[Student] Logout failed:", error);
+      setIsLoggingOut(false);
+    }
+  }
 
   return (
     <aside
@@ -263,9 +280,11 @@ export default function StudentSidebar({
             type="button"
             className="btn btn-ghost h-12 w-full justify-start rounded-xl px-3 normal-case text-base-content/75"
             title={isCollapsed ? "Logout" : undefined}
+            onClick={handleLogout}
+            disabled={isLoggingOut}
           >
             <ArrowLeftEndOnRectangleIcon className="h-5 w-5 shrink-0" />
-            {!isCollapsed && <span>Logout</span>}
+            {!isCollapsed && <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>}
           </button>
         </div>
       </div>
