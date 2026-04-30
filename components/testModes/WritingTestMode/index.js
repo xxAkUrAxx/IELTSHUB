@@ -6,10 +6,10 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../../../lib/firebase/auth-context";
 import { recordStudentResult } from "../../../lib/tests/student-tests";
 
-const DEFAULT_LEFT_WIDTH = 50;
-const MIN_LEFT_WIDTH = 35;
-const MAX_LEFT_WIDTH = 65;
-const DIVIDER_WIDTH = 6;
+const DEFAULT_LEFT_PANEL_WIDTH = 50;
+const MIN_LEFT_PANEL_WIDTH = 35;
+const MAX_LEFT_PANEL_WIDTH = 65;
+const RESIZER_WIDTH = 18;
 const WRITING_DURATION_SECONDS = 60 * 60;
 const CHEATING_GRACE_PERIOD_MS = 60 * 1000;
 const SUSPICIOUS_RESUME_THRESHOLD = 3;
@@ -31,7 +31,7 @@ const WRITING_INSTRUCTION_ITEMS = [
   {
     label: "Navigation",
     value:
-      "Use the section buttons above and below the containers to move between Section 1 and Section 2.",
+      "Use the section buttons above the workspace to move between Section 1 and Section 2.",
   },
   {
     label: "Word Count",
@@ -198,37 +198,48 @@ function closeSelection() {
   window.getSelection()?.removeAllRanges();
 }
 
+function ToolbarButton({ label, onClick, disabled = false }) {
+  return (
+    <button
+      type="button"
+      className="rounded-full border border-base-300 bg-base-100 px-3.5 py-1.5 text-sm font-medium text-base-content transition hover:border-base-content/20 hover:bg-base-200 disabled:cursor-not-allowed disabled:opacity-50"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {label}
+    </button>
+  );
+}
+
 function WritingTaskButton({ isActive, label, meta, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border px-4 py-3 text-left transition ${
+      className={`rounded-2xl border px-6 py-4 text-center transition ${
         isActive
-          ? "border-primary bg-primary/10 text-primary shadow-sm"
-          : "border-base-300 bg-base-100 text-base-content hover:border-base-content/20 hover:bg-base-100"
+          ? "border-primary/30 bg-primary/10 text-primary shadow-sm"
+          : "border-base-300 bg-base-100 text-base-content/75 hover:border-base-content/20 hover:bg-base-100"
       }`}
     >
-      <p className="text-sm font-semibold uppercase tracking-[0.2em] opacity-65">
+      <p className="text-xl font-semibold tracking-tight">
         {label}
       </p>
-      <p className="mt-2 text-sm leading-6 opacity-75">{meta}</p>
+      <p className="mt-1 text-sm leading-6 opacity-75">{meta}</p>
     </button>
   );
 }
 
 function WritingSectionSwitcher({ sections, activeSectionId, onSelectSection }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2">
       {sections.map((section, index) => (
         <WritingTaskButton
           key={section.id}
           isActive={section.id === activeSectionId}
-          label={`Section ${index + 1}`}
-          meta={`${section.label} - At least ${section.minimumWords || 0} words${
-            section.recommendedMinutes
-              ? ` - About ${section.recommendedMinutes} minutes`
-              : ""
+          label={`Part ${index + 1}`}
+          meta={`${section.minimumWords || 0}+ words${
+            section.recommendedMinutes ? ` • About ${section.recommendedMinutes} mins` : ""
           }`}
           onClick={() => onSelectSection(section.id)}
         />
@@ -450,14 +461,14 @@ export default function WritingTestMode({ testData }) {
       return nextResponses;
     }, {})
   );
+  const [leftPanelWidth, setLeftPanelWidth] = useState(DEFAULT_LEFT_PANEL_WIDTH);
   const [highlightedRangesBySection, setHighlightedRangesBySection] = useState({});
-  const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
-  const [isDragging, setIsDragging] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
   const [hasShownWarning, setHasShownWarning] = useState(false);
   const [isFlaggedForCheating, setIsFlaggedForCheating] = useState(false);
   const [isSavingFlag, setIsSavingFlag] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDraggingResizer, setIsDraggingResizer] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
   const [contextMenu, setContextMenu] = useState(null);
@@ -466,7 +477,7 @@ export default function WritingTestMode({ testData }) {
 
   const hasRecordedFlagRef = useRef(false);
   const pendingAlertMessageRef = useRef("");
-  const previousUserSelectRef = useRef("");
+  const splitPaneRef = useRef(null);
   const promptContentRef = useRef(null);
   const textareaRef = useRef(null);
   const hasHydratedDraftRef = useRef(false);
@@ -508,7 +519,7 @@ export default function WritingTestMode({ testData }) {
       hasStarted,
       startedAtMs,
       activeSectionId,
-      leftWidth,
+      leftPanelWidth,
       responses,
       highlights: highlightedRangesBySection,
       resumeCount,
@@ -604,11 +615,11 @@ export default function WritingTestMode({ testData }) {
       }
 
       if (
-        Number.isFinite(draft?.leftWidth) &&
-        draft.leftWidth >= MIN_LEFT_WIDTH &&
-        draft.leftWidth <= MAX_LEFT_WIDTH
+        Number.isFinite(draft?.leftPanelWidth) &&
+        draft.leftPanelWidth >= MIN_LEFT_PANEL_WIDTH &&
+        draft.leftPanelWidth <= MAX_LEFT_PANEL_WIDTH
       ) {
-        setLeftWidth(draft.leftWidth);
+        setLeftPanelWidth(draft.leftPanelWidth);
       }
 
       if (
@@ -641,7 +652,7 @@ export default function WritingTestMode({ testData }) {
     draftStorageKey,
     hasStarted,
     highlightedRangesBySection,
-    leftWidth,
+    leftPanelWidth,
     responses,
     resumeCount,
     startedAtMs,
@@ -660,67 +671,56 @@ export default function WritingTestMode({ testData }) {
     hasSubmitted,
     highlightedRangesBySection,
     isFlaggedForCheating,
-    leftWidth,
+    leftPanelWidth,
     responses,
     resumeCount,
     startedAtMs,
   ]);
 
   useEffect(() => {
-    const body = document.body;
-    previousUserSelectRef.current = body.style.userSelect;
-
-    return () => {
-      body.style.userSelect = previousUserSelectRef.current;
-    };
-  }, []);
-
-  useEffect(() => {
-    function stopDragging() {
-      setIsDragging(false);
-      document.body.style.userSelect = previousUserSelectRef.current;
+    if (!isDraggingResizer) {
+      return undefined;
     }
 
-    function handleMouseMove(event) {
-      if (!isDragging) {
+    function handlePointerMove(event) {
+      const splitPane = splitPaneRef.current;
+
+      if (!splitPane) {
         return;
       }
 
-      const viewportWidth = window.innerWidth;
+      const rect = splitPane.getBoundingClientRect();
 
-      if (!viewportWidth) {
+      if (!rect.width) {
         return;
       }
 
-      const nextLeftWidth = (event.clientX / viewportWidth) * 100;
-      const clampedLeftWidth = Math.min(
-        MAX_LEFT_WIDTH,
-        Math.max(MIN_LEFT_WIDTH, nextLeftWidth)
+      const offsetX = event.clientX - rect.left;
+      const nextWidth = (offsetX / rect.width) * 100;
+      const clampedWidth = Math.min(
+        MAX_LEFT_PANEL_WIDTH,
+        Math.max(MIN_LEFT_PANEL_WIDTH, nextWidth)
       );
 
-      setLeftWidth(clampedLeftWidth);
+      setLeftPanelWidth(clampedWidth);
     }
 
-    function handleMouseUp() {
-      if (!isDragging) {
-        return;
-      }
-
-      stopDragging();
+    function stopDragging() {
+      setIsDraggingResizer(false);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     }
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", stopDragging);
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-
-      if (isDragging) {
-        document.body.style.userSelect = previousUserSelectRef.current;
-      }
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", stopDragging);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     };
-  }, [isDragging]);
+  }, [isDraggingResizer]);
 
   useEffect(() => {
     if (!isTestInteractive) {
@@ -1050,10 +1050,11 @@ export default function WritingTestMode({ testData }) {
     );
   }
 
-  function startResizing(event) {
-    setIsDragging(true);
-    document.body.style.userSelect = "none";
+  function startResizingPanels(event) {
     event.preventDefault();
+    setIsDraggingResizer(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
   }
 
   function openPromptContextMenu(event) {
@@ -1075,29 +1076,67 @@ export default function WritingTestMode({ testData }) {
     });
   }
 
-  function openTextareaContextMenu(event) {
+  async function handleEditorAction(actionId) {
     const textarea = textareaRef.current;
 
     if (!textarea) {
       return;
     }
 
-    event.preventDefault();
-
     const selectionStart = textarea.selectionStart || 0;
     const selectionEnd = textarea.selectionEnd || 0;
     const selectedText = textarea.value.slice(selectionStart, selectionEnd);
 
-    setContextMenu({
-      kind: "textarea",
-      x: Math.min(event.clientX, window.innerWidth - 180),
-      y: Math.min(event.clientY, window.innerHeight - 220),
-      sectionId: activeSection.id,
-      selectionStart,
-      selectionEnd,
-      selectedText,
-      allowedActions: selectedText ? ["copy", "paste", "cut"] : ["paste"],
-    });
+    try {
+      if (actionId === "copy") {
+        await copyTextToClipboard(selectedText || "");
+      }
+
+      if (actionId === "cut") {
+        const currentValue = responses[activeSection.id] || "";
+
+        await copyTextToClipboard(selectedText || "");
+
+        setResponses((currentResponses) => ({
+          ...currentResponses,
+          [activeSection.id]:
+            currentValue.slice(0, selectionStart) + currentValue.slice(selectionEnd),
+        }));
+
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          textareaRef.current?.setSelectionRange(selectionStart, selectionStart);
+        });
+      }
+
+      if (actionId === "paste") {
+        const clipboardText = await readClipboardText();
+        const currentValue = responses[activeSection.id] || "";
+        const nextValue =
+          currentValue.slice(0, selectionStart) +
+          clipboardText +
+          currentValue.slice(selectionEnd);
+        const nextCursor = selectionStart + clipboardText.length;
+
+        setResponses((currentResponses) => ({
+          ...currentResponses,
+          [activeSection.id]: nextValue,
+        }));
+
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+        });
+      }
+
+      if (actionId === "select-all") {
+        textarea.focus();
+        textarea.setSelectionRange(0, textarea.value.length);
+      }
+    } catch (error) {
+      console.error("[Writing Test] Editor action failed:", error);
+      window.alert(error?.message || "That action could not be completed.");
+    }
   }
 
   async function handleContextMenuAction(actionId) {
@@ -1121,53 +1160,8 @@ export default function WritingTestMode({ testData }) {
       }
 
       if (actionId === "copy") {
-        const textToCopy =
-          contextMenu.kind === "prompt"
-            ? contextMenu.selection.text
-            : contextMenu.selectedText;
-
+        const textToCopy = contextMenu.selection.text;
         await copyTextToClipboard(textToCopy || "");
-      }
-
-      if (actionId === "cut" && contextMenu.kind === "textarea") {
-        const currentValue = responses[contextMenu.sectionId] || "";
-
-        await copyTextToClipboard(contextMenu.selectedText || "");
-
-        setResponses((currentResponses) => ({
-          ...currentResponses,
-          [contextMenu.sectionId]:
-            currentValue.slice(0, contextMenu.selectionStart) +
-            currentValue.slice(contextMenu.selectionEnd),
-        }));
-
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.setSelectionRange(
-            contextMenu.selectionStart,
-            contextMenu.selectionStart
-          );
-        });
-      }
-
-      if (actionId === "paste" && contextMenu.kind === "textarea") {
-        const clipboardText = await readClipboardText();
-        const currentValue = responses[contextMenu.sectionId] || "";
-        const nextValue =
-          currentValue.slice(0, contextMenu.selectionStart) +
-          clipboardText +
-          currentValue.slice(contextMenu.selectionEnd);
-        const nextCursor = contextMenu.selectionStart + clipboardText.length;
-
-        setResponses((currentResponses) => ({
-          ...currentResponses,
-          [contextMenu.sectionId]: nextValue,
-        }));
-
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
-        });
       }
     } catch (error) {
       console.error("[Writing Test] Context menu action failed:", error);
@@ -1177,33 +1171,38 @@ export default function WritingTestMode({ testData }) {
     }
   }
 
-  const rightWidth = 100 - leftWidth;
-
   return (
     <>
       <main className="flex h-screen w-screen flex-col overflow-hidden bg-base-200 text-base-content">
-        <div className="border-b border-base-300 bg-base-100 px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
-                IELTS Writing Test
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+        <div className="border-b border-base-300 bg-base-100 px-7 py-4">
+          <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-base-content/65">
                 {testData?.name || "Writing Test"}
-              </h1>
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-base-300 bg-base-200 px-4 py-3 text-right">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/45">
-                Time Remaining
-              </p>
-              <p className="mt-1 text-2xl font-semibold tracking-tight">
+            <div className="text-center">
+              <p className="text-sm font-medium text-base-content/55">Time remaining</p>
+              <p className="mt-0.5 text-3xl font-semibold tracking-tight text-base-content">
                 {formatCountdown(timeRemaining)}
               </p>
             </div>
+
+            <div className="flex items-center justify-start gap-3 lg:justify-end">
+              <button
+                type="button"
+                className="rounded-xl bg-error px-6 py-3 text-sm font-bold uppercase tracking-[0.18em] text-error-content shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => void submitWritingAttempt("manual_submit")}
+                disabled={isSubmitting}
+                title="If you submit this test before the timer runs out, you cannot undo this."
+              >
+                Submit Now
+              </button>
+            </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-base-content">
+          <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-base-content">
             Leaving this test screen, switching tabs, or opening another app will
             flag this attempt as cheating and score it 0 after the 1 minute start
             grace period ends.
@@ -1217,40 +1216,30 @@ export default function WritingTestMode({ testData }) {
           ) : null}
 
           {resumeCount >= 1 ? (
-            <div className="mt-4 rounded-2xl border border-base-300 bg-base-200/50 px-4 py-3 text-sm leading-6 text-base-content/80">
+            <div className="mt-4 rounded-2xl border border-base-300 bg-base-100 px-4 py-3 text-sm leading-6 text-base-content/80">
               Resume count for this attempt: {resumeCount}
             </div>
           ) : null}
-
-          <div className="mt-5">
-            <WritingSectionSwitcher
-              sections={sections}
-              activeSectionId={activeSection.id}
-              onSelectSection={setActiveSectionId}
-            />
-          </div>
         </div>
 
-        <div className="flex min-h-0 flex-1">
+        <div ref={splitPaneRef} className="flex min-h-0 flex-1 gap-0 bg-base-200 p-6">
           <section
-            className="flex h-full flex-col border-r border-base-300 bg-base-100"
-            style={{
-              width: `calc((100% - ${DIVIDER_WIDTH}px) * ${leftWidth / 100})`,
-            }}
+            className="card flex min-h-0 h-full min-w-0 flex-col overflow-hidden border border-base-300 bg-base-100 shadow-sm"
+            style={{ width: `calc(${leftPanelWidth}% - ${RESIZER_WIDTH / 2}px)` }}
           >
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              <article className="flex h-full min-h-[28rem] flex-col rounded-3xl border border-base-300 bg-base-100 p-6 shadow-sm">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/45">
+            <div className="card-body flex min-h-0 flex-1 overflow-y-auto p-7">
+              <article className="flex h-full min-h-[32rem] flex-col gap-7">
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-base-content/50">
                   {activeSection.label}
                 </p>
-                <p className="mt-3 text-lg font-medium text-base-content/80">
+                <p className="text-[1.05rem] leading-8 text-base-content/85">
                   {activeSection.id === "task-1"
                     ? "You should spend about 20 minutes on this task."
                     : "You should spend about 40 minutes on this task."}
                 </p>
                 <div
                   ref={promptContentRef}
-                  className="mt-6 whitespace-pre-wrap text-base leading-8 text-base-content"
+                  className="rounded-2xl border border-base-300 bg-base-200/40 px-5 py-4 whitespace-pre-wrap text-[1.04rem] leading-8 text-base-content"
                   onContextMenu={openPromptContextMenu}
                 >
                   {activePromptSegments.length > 0 ? (
@@ -1272,7 +1261,7 @@ export default function WritingTestMode({ testData }) {
                 </div>
 
                 {activeSection.imageUrl ? (
-                  <div className="mt-6 flex min-h-0 flex-1 items-center justify-center rounded-3xl border border-base-300 bg-base-200/50 p-4">
+                  <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-base-300 bg-base-200/30 p-6">
                     <img
                       src={activeSection.imageUrl}
                       alt={`${activeSection.label} reference visual`}
@@ -1286,76 +1275,83 @@ export default function WritingTestMode({ testData }) {
 
           <div
             role="separator"
-            aria-orientation="vertical"
             aria-label="Resize writing panels"
-            aria-valuemin={MIN_LEFT_WIDTH}
-            aria-valuemax={MAX_LEFT_WIDTH}
-            aria-valuenow={Math.round(leftWidth)}
-            onMouseDown={startResizing}
-            style={{
-              width: `${DIVIDER_WIDTH}px`,
-              flexShrink: 0,
-              cursor: "col-resize",
-              backgroundColor: "#1d4ed8",
-              boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.15)",
-              zIndex: 1,
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.backgroundColor = "#3b82f6";
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.backgroundColor = "#1d4ed8";
-            }}
-          />
+            aria-orientation="vertical"
+            aria-valuemin={MIN_LEFT_PANEL_WIDTH}
+            aria-valuemax={MAX_LEFT_PANEL_WIDTH}
+            aria-valuenow={Math.round(leftPanelWidth)}
+            className="group relative flex h-full shrink-0 items-center justify-center"
+            style={{ width: `${RESIZER_WIDTH}px`, cursor: "col-resize" }}
+            onMouseDown={startResizingPanels}
+          >
+            <div className="flex h-full w-full items-center justify-center">
+              <div className="h-full w-px bg-base-300 transition group-hover:bg-primary/60" />
+              <div className="absolute flex h-12 w-6 items-center justify-center rounded-full border border-base-300 bg-base-100 text-base-content/45 shadow-sm transition group-hover:border-primary/40 group-hover:text-primary">
+                <span className="text-xs tracking-[-0.2em]">||</span>
+              </div>
+            </div>
+          </div>
 
           <section
-            className="flex h-full flex-col bg-base-200"
+            className="card flex min-h-0 h-full min-w-0 flex-col overflow-hidden border border-base-300 bg-base-100 shadow-sm"
             style={{
-              width: `calc((100% - ${DIVIDER_WIDTH}px) * ${rightWidth / 100})`,
+              width: `calc(${100 - leftPanelWidth}% - ${RESIZER_WIDTH / 2}px)`,
             }}
           >
-            <div className="border-b border-base-300 bg-base-100 px-6 py-5">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/45">
-                Response Area
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                {activeSection.label} Response
-              </h2>
-            </div>
-
-            <div className="flex-1 px-6 py-6">
-              <div className="flex h-full min-h-[28rem] flex-col rounded-3xl border border-base-300 bg-base-100 p-6 shadow-sm">
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <p className="text-sm leading-6 text-base-content/65">
+            <div className="card-body flex min-h-0 flex-1 p-7">
+              <div className="flex h-full min-h-[32rem] w-full flex-col gap-6">
+                <div className="flex flex-wrap items-start justify-between gap-6">
+                  <p className="text-sm leading-6 text-base-content/70">
                     Write at least {activeSection.minimumWords || 0} words for this
                     task.
                   </p>
-                  <p className="text-sm leading-6 text-base-content/55">
-                    Your text stays separate for each writing task.
+                  <p className="text-sm leading-6 text-base-content/60">
+                    Your answer stays separate for each writing task.
                   </p>
                 </div>
 
-                <textarea
-                  ref={textareaRef}
-                  className="textarea h-full min-h-[28rem] w-full flex-1 resize-none border-0 bg-transparent p-0 text-base leading-8 text-base-content outline-none focus:outline-none"
-                  placeholder={`Type your ${activeSection.label.toLowerCase()} answer here...`}
-                  value={responses[activeSection.id] || ""}
-                  onChange={(event) =>
-                    setResponses((currentResponses) => ({
-                      ...currentResponses,
-                      [activeSection.id]: event.target.value,
-                    }))
-                  }
-                  onContextMenu={openTextareaContextMenu}
-                />
+                <div className="flex flex-wrap gap-3">
+                  <ToolbarButton
+                    label="Cut"
+                    onClick={() => void handleEditorAction("cut")}
+                  />
+                  <ToolbarButton
+                    label="Copy"
+                    onClick={() => void handleEditorAction("copy")}
+                  />
+                  <ToolbarButton
+                    label="Paste"
+                    onClick={() => void handleEditorAction("paste")}
+                  />
+                  <ToolbarButton
+                    label="Select All"
+                    onClick={() => void handleEditorAction("select-all")}
+                  />
+                </div>
 
-                <div className="mt-4 flex justify-end">
-                  <div className="rounded-2xl border border-base-300 bg-base-200 px-4 py-3 text-right">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-base-content/45">
-                      Word Count
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-base-300 bg-base-200/20">
+                    <textarea
+                      ref={textareaRef}
+                      className="h-full min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-5 py-4 text-[1.02rem] leading-8 text-base-content outline-none focus:outline-none"
+                      placeholder={`Type your ${activeSection.label.toLowerCase()} answer here...`}
+                      value={responses[activeSection.id] || ""}
+                      onChange={(event) =>
+                        setResponses((currentResponses) => ({
+                          ...currentResponses,
+                          [activeSection.id]: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between gap-6 rounded-2xl border border-base-300 bg-base-200/40 px-5 py-4">
+                    <p className="text-sm text-base-content/65">
+                      Standard keyboard shortcuts like Ctrl/Cmd + X, C, and V are
+                      supported.
                     </p>
-                    <p className="mt-1 text-2xl font-semibold tracking-tight">
-                      {countWords(responses[activeSection.id] || "")}
+                    <p className="text-lg font-medium text-base-content">
+                      Word Count: {countWords(responses[activeSection.id] || "")}
                     </p>
                   </div>
                 </div>
@@ -1364,7 +1360,7 @@ export default function WritingTestMode({ testData }) {
           </section>
         </div>
 
-        <div className="border-t border-base-300 bg-base-100 px-6 py-5">
+        <div className="border-t border-base-300 bg-base-100 px-6 py-4">
           <WritingSectionSwitcher
             sections={sections}
             activeSectionId={activeSection.id}
