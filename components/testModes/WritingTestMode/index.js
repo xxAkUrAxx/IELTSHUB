@@ -1174,55 +1174,80 @@ export default function WritingTestMode({ testData }) {
   return (
     <>
       <main className="flex h-screen w-screen flex-col overflow-hidden bg-base-200 text-base-content">
-        <div className="border-b border-base-300 bg-base-100 px-7 py-4">
-          <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-base-content/65">
+        <div className="border-b border-base-300 bg-base-100 px-7 py-5">
+          <div
+            className="items-start"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
+              columnGap: "24px",
+              alignItems: "start",
+            }}
+          >
+            <div className="min-w-0 pt-1">
+              <p
+                className="text-sm font-semibold"
+                style={{ letterSpacing: "0.02em", color: "var(--fallback-bc, oklch(var(--bc)/0.75))" }}
+              >
                 {testData?.name || "Writing Test"}
               </p>
             </div>
 
             <div className="text-center">
               <p className="text-sm font-medium text-base-content/55">Time remaining</p>
-              <p className="mt-0.5 text-3xl font-semibold tracking-tight text-base-content">
+              <p className="mt-1 text-4xl font-semibold tracking-tight text-base-content">
                 {formatCountdown(timeRemaining)}
               </p>
             </div>
 
-            <div className="flex items-center justify-start gap-3 lg:justify-end">
+            <div className="flex justify-end">
               <button
                 type="button"
-                className="rounded-xl bg-error px-6 py-3 text-sm font-bold uppercase tracking-[0.18em] text-error-content shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => void submitWritingAttempt("manual_submit")}
                 disabled={isSubmitting}
                 title="If you submit this test before the timer runs out, you cannot undo this."
+                style={{
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  border: "1px solid #991b1b",
+                  borderRadius: "14px",
+                  padding: "14px 26px",
+                  fontSize: "14px",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.18em",
+                  boxShadow: "0 10px 24px rgba(220, 38, 38, 0.24)",
+                }}
+                className="disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Submit Now
               </button>
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-base-content">
-            Leaving this test screen, switching tabs, or opening another app will
-            flag this attempt as cheating and score it 0 after the 1 minute start
-            grace period ends.
+          <div className="mt-5 flex flex-col gap-3">
+            <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-base-content">
+              Leaving this test screen, switching tabs, or opening another app will
+              flag this attempt as cheating and score it 0 after the 1 minute start
+              grace period ends.
+            </div>
+
+            {wasRestoredFromDraft ? (
+              <div className="rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm leading-6 text-base-content">
+                Your writing attempt was restored after a refresh or reconnect. The
+                timer kept running and your answers were recovered locally.
+              </div>
+            ) : null}
+
+            {resumeCount >= 1 ? (
+              <div className="rounded-2xl border border-base-300 bg-base-100 px-4 py-3 text-sm leading-6 text-base-content/80">
+                Resume count for this attempt: {resumeCount}
+              </div>
+            ) : null}
           </div>
-
-          {wasRestoredFromDraft ? (
-            <div className="mt-4 rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-sm leading-6 text-base-content">
-              Your writing attempt was restored after a refresh or reconnect. The
-              timer kept running and your answers were recovered locally.
-            </div>
-          ) : null}
-
-          {resumeCount >= 1 ? (
-            <div className="mt-4 rounded-2xl border border-base-300 bg-base-100 px-4 py-3 text-sm leading-6 text-base-content/80">
-              Resume count for this attempt: {resumeCount}
-            </div>
-          ) : null}
         </div>
 
-        <div ref={splitPaneRef} className="flex min-h-0 flex-1 gap-0 bg-base-200 p-6">
+        <div ref={splitPaneRef} className="flex min-h-0 flex-1 gap-0 bg-base-200 p-6 pt-7">
           <section
             className="card flex min-h-0 h-full min-w-0 flex-col overflow-hidden border border-base-300 bg-base-100 shadow-sm"
             style={{ width: `calc(${leftPanelWidth}% - ${RESIZER_WIDTH / 2}px)` }}
@@ -1336,6 +1361,12 @@ export default function WritingTestMode({ testData }) {
                       className="h-full min-h-0 w-full flex-1 resize-none border-0 bg-transparent px-5 py-4 text-[1.02rem] leading-8 text-base-content outline-none focus:outline-none"
                       placeholder={`Type your ${activeSection.label.toLowerCase()} answer here...`}
                       value={responses[activeSection.id] || ""}
+                      spellCheck={false}
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      data-gramm="false"
+                      data-gramm_editor="false"
+                      data-enable-grammarly="false"
                       onChange={(event) =>
                         setResponses((currentResponses) => ({
                           ...currentResponses,
