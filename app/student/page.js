@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import StudentShell from "./_components/student-shell";
+import StudentPageHeader from "./_components/student-page-header";
 import { useAuth } from "../../lib/firebase/auth-context";
 
 const WIDGET_LAYOUT_STORAGE_KEY = "student-dashboard-widget-layout-v1";
@@ -1141,14 +1142,11 @@ export default function StudentPage() {
   return (
     <StudentShell>
       <section className="flex min-h-[calc(100vh-4rem)] flex-col">
-        <header className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Home Dashboard
-          </h1>
-          <p className="mt-3 text-base font-medium text-base-content/70">
-            {welcomeLabel}
-          </p>
-        </header>
+        <StudentPageHeader
+          title="Home Dashboard"
+          subtitle={welcomeLabel}
+          overallAverageBand={overallAvgBandScore}
+        />
 
         <div className="mb-6 flex flex-wrap items-center gap-3 rounded-[24px] border border-base-300 bg-base-100 px-4 py-3 shadow-sm">
           <button

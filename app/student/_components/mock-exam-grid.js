@@ -8,6 +8,7 @@ import {
   SpeakerWaveIcon,
 } from "@heroicons/react/24/outline";
 import TestCard from "./test-card";
+import StudentPageHeader from "./student-page-header";
 import { useAuth } from "../../../lib/firebase/auth-context";
 import {
   listStudentResults,
@@ -107,9 +108,7 @@ export default function MockExamGrid({
 
   return (
     <section className="flex min-h-[calc(100vh-4rem)] flex-col">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">{heading}</h1>
-      </header>
+      <StudentPageHeader title={heading} />
 
       <div className="flex flex-1 items-start justify-center">
         {tests.length > 0 ? (
