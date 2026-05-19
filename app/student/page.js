@@ -5,6 +5,8 @@ import StudentShell from "./_components/student-shell";
 import { useAuth } from "../../lib/firebase/auth-context";
 
 const WIDGET_LAYOUT_STORAGE_KEY = "student-dashboard-widget-layout-v1";
+const DEFAULT_DARK_TEXT_COLOR = "#F8FAFC";
+const DEFAULT_LIGHT_TEXT_COLOR = "#0F172A";
 const DEFAULT_WIDGET_LAYOUT = {
   totalTests: {
     cardWidth: 240,
@@ -14,7 +16,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -26,7 +28,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -38,7 +40,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -50,7 +52,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -62,7 +64,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -74,7 +76,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -86,7 +88,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -98,7 +100,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: 0,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#0B114A",
     chartSecondaryColor: "#66C7E3",
   },
@@ -110,7 +112,7 @@ const DEFAULT_WIDGET_LAYOUT = {
     chartBottomPadding: 0,
     valueGap: -6,
     titleSize: 18,
-    textColor: "#F8FAFC",
+    textColor: DEFAULT_DARK_TEXT_COLOR,
     chartPrimaryColor: "#FF1E1E",
     chartSecondaryColor: "#66C7E3",
   },
@@ -219,6 +221,27 @@ function calculateIeltsOverallBand(scores) {
 
 function formatBandScore(score) {
   return score.toFixed(1);
+}
+
+function resolveThemeTextColor(textColor, themeMode) {
+  if (!isHexColor(textColor)) {
+    return themeMode === "light"
+      ? DEFAULT_LIGHT_TEXT_COLOR
+      : DEFAULT_DARK_TEXT_COLOR;
+  }
+
+  const normalizedColor = textColor.toUpperCase();
+
+  if (
+    normalizedColor === DEFAULT_DARK_TEXT_COLOR ||
+    normalizedColor === DEFAULT_LIGHT_TEXT_COLOR
+  ) {
+    return themeMode === "light"
+      ? DEFAULT_LIGHT_TEXT_COLOR
+      : DEFAULT_DARK_TEXT_COLOR;
+  }
+
+  return normalizedColor;
 }
 
 function clamp(value, min, max) {
@@ -605,11 +628,14 @@ function WidgetControls({ config, onChange }) {
 function DashboardWidget({
   title,
   config,
+  themeMode,
   isEditing,
   onChange,
   children,
   uppercaseTitle = true,
 }) {
+  const displayTextColor = resolveThemeTextColor(config.textColor, themeMode);
+
   return (
     <article
       className="rounded-[32px] border border-base-300 bg-base-100 p-4 shadow-sm transition-all"
@@ -623,7 +649,7 @@ function DashboardWidget({
           className={`text-center font-black leading-none tracking-tight ${uppercaseTitle ? "uppercase" : ""}`}
           style={{
             fontSize: `${config.titleSize}px`,
-            color: config.textColor,
+            color: displayTextColor,
           }}
         >
           {title}
@@ -783,6 +809,7 @@ export default function StudentPage() {
   const { profile, user } = useAuth();
   const [isWidgetEditing, setIsWidgetEditing] = useState(false);
   const [widgetLayout, setWidgetLayout] = useState(getInitialWidgetLayout);
+  const [themeMode, setThemeMode] = useState("dark");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -800,6 +827,35 @@ export default function StudentPage() {
     } catch (error) {
       console.error("[Student Dashboard] Failed to parse widget layout.", error);
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const themeElement = document.querySelector("[data-theme]");
+
+    if (!themeElement) {
+      return;
+    }
+
+    function syncThemeMode() {
+      const nextThemeMode = themeElement.getAttribute("data-theme");
+      setThemeMode(nextThemeMode === "light" ? "light" : "dark");
+    }
+
+    syncThemeMode();
+
+    const observer = new MutationObserver(syncThemeMode);
+    observer.observe(themeElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -1106,195 +1162,210 @@ export default function StudentPage() {
 
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-start gap-6">
-            <DashboardWidget
-              title="Total Tests Done"
-              config={totalTestsWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("totalTests", property, value)
+          <DashboardWidget
+            title="Total Tests Done"
+            config={totalTestsWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("totalTests", property, value)
               }
             >
               <ProgressDonut
                 chartSize={totalTestsWidget.chartSize}
-                completionPercent={totalTestsCompletionPercent}
-                valueLabel={`${totalTestsCompletionPercent}%`}
-                lightArcPath={totalTestsLightArcPath}
-                darkArcPath={totalTestsDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={totalTestsWidget.textColor}
-                primaryColor={totalTestsWidget.chartPrimaryColor}
-                secondaryColor={totalTestsWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={totalTestsCompletionPercent}
+              valueLabel={`${totalTestsCompletionPercent}%`}
+              lightArcPath={totalTestsLightArcPath}
+              darkArcPath={totalTestsDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(totalTestsWidget.textColor, themeMode)}
+              primaryColor={totalTestsWidget.chartPrimaryColor}
+              secondaryColor={totalTestsWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="Grammar Practice Done"
-              config={grammarPracticeWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("grammarPractice", property, value)
+          <DashboardWidget
+            title="Grammar Practice Done"
+            config={grammarPracticeWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("grammarPractice", property, value)
               }
             >
               <ProgressDonut
                 chartSize={grammarPracticeWidget.chartSize}
-                completionPercent={grammarPracticeCompletionPercent}
-                valueLabel={`${grammarPracticeCompletionPercent}%`}
-                lightArcPath={grammarPracticeLightArcPath}
-                darkArcPath={grammarPracticeDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={grammarPracticeWidget.textColor}
-                primaryColor={grammarPracticeWidget.chartPrimaryColor}
-                secondaryColor={grammarPracticeWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={grammarPracticeCompletionPercent}
+              valueLabel={`${grammarPracticeCompletionPercent}%`}
+              lightArcPath={grammarPracticeLightArcPath}
+              darkArcPath={grammarPracticeDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(grammarPracticeWidget.textColor, themeMode)}
+              primaryColor={grammarPracticeWidget.chartPrimaryColor}
+              secondaryColor={grammarPracticeWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="Total Listening Practice Done"
-              config={listeningPracticeWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("listeningPractice", property, value)
+          <DashboardWidget
+            title="Total Listening Practice Done"
+            config={listeningPracticeWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("listeningPractice", property, value)
               }
             >
               <ProgressDonut
                 chartSize={listeningPracticeWidget.chartSize}
-                completionPercent={listeningPracticeCompletionPercent}
-                valueLabel={`${listeningPracticeCompletionPercent}%`}
-                lightArcPath={listeningPracticeLightArcPath}
-                darkArcPath={listeningPracticeDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={listeningPracticeWidget.textColor}
-                primaryColor={listeningPracticeWidget.chartPrimaryColor}
-                secondaryColor={listeningPracticeWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={listeningPracticeCompletionPercent}
+              valueLabel={`${listeningPracticeCompletionPercent}%`}
+              lightArcPath={listeningPracticeLightArcPath}
+              darkArcPath={listeningPracticeDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(
+                listeningPracticeWidget.textColor,
+                themeMode
+              )}
+              primaryColor={listeningPracticeWidget.chartPrimaryColor}
+              secondaryColor={listeningPracticeWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="Typing Speed"
-              config={typingSpeedWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("typingSpeed", property, value)
+          <DashboardWidget
+            title="Typing Speed"
+            config={typingSpeedWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("typingSpeed", property, value)
               }
               uppercaseTitle={false}
             >
               <ProgressDial
-                chartSize={typingSpeedWidget.chartSize}
-                value={typingSpeedWpm}
-                maxValue={typingSpeedMaxWpm}
-                valueGap={typingSpeedWidget.valueGap}
-                textColor={typingSpeedWidget.textColor}
-                primaryColor={typingSpeedWidget.chartPrimaryColor}
-                secondaryColor={typingSpeedWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              chartSize={typingSpeedWidget.chartSize}
+              value={typingSpeedWpm}
+              maxValue={typingSpeedMaxWpm}
+              valueGap={typingSpeedWidget.valueGap}
+              textColor={resolveThemeTextColor(typingSpeedWidget.textColor, themeMode)}
+              primaryColor={typingSpeedWidget.chartPrimaryColor}
+              secondaryColor={typingSpeedWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
           </div>
 
           <div className="flex flex-wrap items-start gap-6">
-            <DashboardWidget
-              title="AVG READING BAND"
-              config={avgReadingBandWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("avgReadingBand", property, value)
+          <DashboardWidget
+            title="AVG READING BAND"
+            config={avgReadingBandWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("avgReadingBand", property, value)
               }
             >
               <ProgressDonut
                 chartSize={avgReadingBandWidget.chartSize}
-                completionPercent={avgReadingBandCompletionPercent}
-                valueLabel={formatBandScore(avgReadingBandScore)}
-                lightArcPath={avgReadingBandLightArcPath}
-                darkArcPath={avgReadingBandDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={avgReadingBandWidget.textColor}
-                primaryColor={avgReadingBandWidget.chartPrimaryColor}
-                secondaryColor={avgReadingBandWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={avgReadingBandCompletionPercent}
+              valueLabel={formatBandScore(avgReadingBandScore)}
+              lightArcPath={avgReadingBandLightArcPath}
+              darkArcPath={avgReadingBandDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(avgReadingBandWidget.textColor, themeMode)}
+              primaryColor={avgReadingBandWidget.chartPrimaryColor}
+              secondaryColor={avgReadingBandWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="AVG WRITING BAND"
-              config={avgWritingBandWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("avgWritingBand", property, value)
+          <DashboardWidget
+            title="AVG WRITING BAND"
+            config={avgWritingBandWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("avgWritingBand", property, value)
               }
             >
               <ProgressDonut
                 chartSize={avgWritingBandWidget.chartSize}
-                completionPercent={avgWritingBandCompletionPercent}
-                valueLabel={formatBandScore(avgWritingBandScore)}
-                lightArcPath={avgWritingBandLightArcPath}
-                darkArcPath={avgWritingBandDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={avgWritingBandWidget.textColor}
-                primaryColor={avgWritingBandWidget.chartPrimaryColor}
-                secondaryColor={avgWritingBandWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={avgWritingBandCompletionPercent}
+              valueLabel={formatBandScore(avgWritingBandScore)}
+              lightArcPath={avgWritingBandLightArcPath}
+              darkArcPath={avgWritingBandDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(avgWritingBandWidget.textColor, themeMode)}
+              primaryColor={avgWritingBandWidget.chartPrimaryColor}
+              secondaryColor={avgWritingBandWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="AVG LISTENING BAND"
-              config={avgListeningBandWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("avgListeningBand", property, value)
+          <DashboardWidget
+            title="AVG LISTENING BAND"
+            config={avgListeningBandWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("avgListeningBand", property, value)
               }
             >
               <ProgressDonut
                 chartSize={avgListeningBandWidget.chartSize}
-                completionPercent={avgListeningBandCompletionPercent}
-                valueLabel={formatBandScore(avgListeningBandScore)}
-                lightArcPath={avgListeningBandLightArcPath}
-                darkArcPath={avgListeningBandDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={avgListeningBandWidget.textColor}
-                primaryColor={avgListeningBandWidget.chartPrimaryColor}
-                secondaryColor={avgListeningBandWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={avgListeningBandCompletionPercent}
+              valueLabel={formatBandScore(avgListeningBandScore)}
+              lightArcPath={avgListeningBandLightArcPath}
+              darkArcPath={avgListeningBandDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(
+                avgListeningBandWidget.textColor,
+                themeMode
+              )}
+              primaryColor={avgListeningBandWidget.chartPrimaryColor}
+              secondaryColor={avgListeningBandWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="AVG SPEAKING BAND"
-              config={avgSpeakingBandWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("avgSpeakingBand", property, value)
+          <DashboardWidget
+            title="AVG SPEAKING BAND"
+            config={avgSpeakingBandWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("avgSpeakingBand", property, value)
               }
             >
               <ProgressDonut
                 chartSize={avgSpeakingBandWidget.chartSize}
-                completionPercent={avgSpeakingBandCompletionPercent}
-                valueLabel={formatBandScore(avgSpeakingBandScore)}
-                lightArcPath={avgSpeakingBandLightArcPath}
-                darkArcPath={avgSpeakingBandDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={avgSpeakingBandWidget.textColor}
-                primaryColor={avgSpeakingBandWidget.chartPrimaryColor}
-                secondaryColor={avgSpeakingBandWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={avgSpeakingBandCompletionPercent}
+              valueLabel={formatBandScore(avgSpeakingBandScore)}
+              lightArcPath={avgSpeakingBandLightArcPath}
+              darkArcPath={avgSpeakingBandDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(avgSpeakingBandWidget.textColor, themeMode)}
+              primaryColor={avgSpeakingBandWidget.chartPrimaryColor}
+              secondaryColor={avgSpeakingBandWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
 
-            <DashboardWidget
-              title="OVERALL AVG"
-              config={overallAvgBandWidget}
-              isEditing={isWidgetEditing}
-              onChange={(property, value) =>
-                handleWidgetConfigChange("overallAvgBand", property, value)
+          <DashboardWidget
+            title="OVERALL AVG"
+            config={overallAvgBandWidget}
+            themeMode={themeMode}
+            isEditing={isWidgetEditing}
+            onChange={(property, value) =>
+              handleWidgetConfigChange("overallAvgBand", property, value)
               }
             >
               <ProgressDonut
                 chartSize={overallAvgBandWidget.chartSize}
-                completionPercent={overallAvgBandCompletionPercent}
-                valueLabel={formatBandScore(overallAvgBandScore)}
-                lightArcPath={overallAvgBandLightArcPath}
-                darkArcPath={overallAvgBandDarkArcPath}
-                chartStroke={chartStroke}
-                textColor={overallAvgBandWidget.textColor}
-                primaryColor={overallAvgBandWidget.chartPrimaryColor}
-                secondaryColor={overallAvgBandWidget.chartSecondaryColor}
-              />
-            </DashboardWidget>
+              completionPercent={overallAvgBandCompletionPercent}
+              valueLabel={formatBandScore(overallAvgBandScore)}
+              lightArcPath={overallAvgBandLightArcPath}
+              darkArcPath={overallAvgBandDarkArcPath}
+              chartStroke={chartStroke}
+              textColor={resolveThemeTextColor(overallAvgBandWidget.textColor, themeMode)}
+              primaryColor={overallAvgBandWidget.chartPrimaryColor}
+              secondaryColor={overallAvgBandWidget.chartSecondaryColor}
+            />
+          </DashboardWidget>
           </div>
         </div>
       </section>
