@@ -16,6 +16,32 @@ function formatCreatedAt(createdAt) {
   return parsedDate.toLocaleDateString();
 }
 
+function getDifficultyBadgeStyle(difficulty) {
+  const normalizedDifficulty = String(difficulty).toLowerCase();
+
+  if (normalizedDifficulty === "easy") {
+    return {
+      borderColor: "#4CCD99",
+      color: "#4CCD99",
+      backgroundColor: "rgba(76, 205, 153, 0.12)",
+    };
+  }
+
+  if (normalizedDifficulty === "hard") {
+    return {
+      borderColor: "#AE2448",
+      color: "#AE2448",
+      backgroundColor: "rgba(174, 36, 72, 0.12)",
+    };
+  }
+
+  return {
+    borderColor: "#FFC700",
+    color: "#FFC700",
+    backgroundColor: "rgba(255, 199, 0, 0.12)",
+  };
+}
+
 export default function TestCard({
   title,
   difficulty,
@@ -29,6 +55,8 @@ export default function TestCard({
     window.alert("Review mode is coming soon.");
   }
 
+  const difficultyBadgeStyle = getDifficultyBadgeStyle(difficulty);
+
   return (
     <article className="card border border-base-300 bg-base-100 shadow-sm">
       <div className="card-body gap-4 p-6">
@@ -38,7 +66,12 @@ export default function TestCard({
             {completed ? (
               <div className="badge badge-success badge-outline">Completed</div>
             ) : (
-              <div className="badge badge-outline">{difficulty}</div>
+              <div
+                className="badge badge-outline"
+                style={difficultyBadgeStyle}
+              >
+                {difficulty}
+              </div>
             )}
           </div>
 
